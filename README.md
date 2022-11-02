@@ -26,8 +26,8 @@ no table            : 0.102306 secs
 
 Raspberry Pi 4 Model B
 runs: 10000000
-hardware            : 0.424169 secs
-table no rounding   : 0.507391 secs
-table with rounding : 0.539945 secs
-no table            : 0.674957 secs
+hardware            : 0.072526 secs
+table no rounding   : 0.157291 secs
+table with rounding : 0.184654 secs
+no table            : 0.321146 secs
 ```

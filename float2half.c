@@ -269,7 +269,7 @@ void perf_test()
         uint64_t start = get_timer();
         for (int i =0; i < TEST_SIZE; i++) {
             value.i = data[i];
-            result[i] = imath_float_to_half(value.i);
+            result[i] = imath_float_to_half(value.f);
         }
 
         uint64_t end = get_timer();

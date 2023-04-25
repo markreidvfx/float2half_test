@@ -128,7 +128,7 @@ uint16_t table_float2half_round(uint32_t f, const Float2HalfTables *t)
     // guard bit (most significant discarded bit)
     uint16_t g = ((f | 0x00800000) >> (shift - 1)) & round;
     // sticky bit (all but the most significant discarded bits)
-    uint16_t s = (f & ((1 << (shift - 1)) - 1)) != 0;
+    uint16_t s = (f << (33 - shift)) != 0;
 
     h = t->basetable[i] + ((f & 0x007FFFFF) >> shift);
 

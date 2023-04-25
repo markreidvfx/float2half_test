@@ -19,15 +19,17 @@ the lower 13 bits of the mantissa.
 ```
 Intel(R) Core(TM) i7-10750H CPU @ 2.60GHz
 runs: 10000000
-hardware            : 0.008820 secs
-table no rounding   : 0.038995 secs
-table with rounding : 0.048662 secs
-no table            : 0.102306 secs
+hardware            : 0.008849 secs
+table no rounding   : 0.038196 secs
+table with rounding : 0.048452 secs
+no table            : 0.102954 secs
+imath half          : 0.121158 secs
 
 Raspberry Pi 4 Model B
 runs: 10000000
-hardware            : 0.072526 secs
-table no rounding   : 0.157291 secs
-table with rounding : 0.184654 secs
-no table            : 0.321146 secs
+hardware            : 0.037669 secs
+table no rounding   : 0.144262 secs
+table with rounding : 0.184157 secs
+no table            : 0.329237 secs
+imath half          : 0.401733 secs
 ```

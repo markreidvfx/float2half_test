@@ -6,6 +6,8 @@
 #include <float.h>
 #include <time.h>
 
+#include "imath_half.h"
+
 #if _WIN32
 #include <windows.h>
 #include <intrin.h>
@@ -259,6 +261,18 @@ void perf_test()
     elapse = (double)dur / (double)freq;
     printf("no table            : %f secs\n", elapse);
 
+    start = get_timer();
+    for (int i =0; i < TEST_SIZE; i++) {
+        value.i = data[i];
+        result[i] = imath_float_to_half(value.i);
+    }
+
+    end = get_timer();
+    dur += (end - start);
+
+    elapse = (double)dur / (double)freq;
+    printf("imath half          : %f secs\n", elapse);
+
     free(data);
     free(result);
 
@@ -287,6 +301,7 @@ int main(int argc, char *argv[])
 
         r0 = to_f16(value.f);
         r1 = table_float2half_round(value.i, &f2h_table);
+        // r1 = imath_float_to_half(value.f);
         // r1 = table_float2half_no_round(value.i, &f2h_table);
         // r1 = float2half_full(value.i);
 

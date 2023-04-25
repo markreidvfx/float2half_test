@@ -5,8 +5,14 @@
 
 #include <float.h>
 #include <time.h>
+#include <inttypes.h>
 
 #include "imath_half.h"
+
+typedef union {
+        uint32_t i;
+        float    f;
+} int_float;
 
 #if _WIN32
 #include <windows.h>
@@ -55,12 +61,11 @@ static uint16_t to_f16(float v)
 }
 #else
 #include <immintrin.h>
-static uint16_t to_f16(float v)
+static inline uint16_t to_f16(float v)
 {
-
     uint16_t result[8] = {};
     __m128 ps =_mm_set1_ps(v);
-    __m128i ph = _mm_cvtps_ph(ps, _MM_FROUND_TO_NEAREST_INT  );
+    __m128i ph = _mm_cvtps_ph(ps, _MM_FROUND_TO_NEAREST_INT);
 
     _mm_storeu_si128((__m128i*)result, ph);
 
@@ -109,18 +114,22 @@ void init_float2half_tables(Float2HalfTables *t)
     }
 }
 
-uint16_t table_float2half_no_round(uint32_t f, const Float2HalfTables *t)
+static inline uint16_t table_float2half_no_round(uint32_t f)
 {
     uint16_t h;
+    const Float2HalfTables *t = &f2h_table;
+
     int i = (f >> 23) & 0x01FF;
     int shift = t->shifttable[i] >> 1;
     h = t->basetable[i] + ((f & 0x007FFFFF) >> shift);
     return h;
 }
 
-uint16_t table_float2half_round(uint32_t f, const Float2HalfTables *t)
+static inline uint16_t table_float2half_round(uint32_t f)
 {
     uint16_t h;
+    const Float2HalfTables *t = &f2h_table;
+
     int i = (f >> 23) & 0x01FF;
     int shift = t->shifttable[i] >> 1;
     uint16_t round = t->shifttable[i] & 1;
@@ -142,12 +151,12 @@ uint16_t table_float2half_round(uint32_t f, const Float2HalfTables *t)
     return h;
 }
 
-static uint16_t inline rounded(uint32_t value, int g, int s)
+static inline uint16_t rounded(uint32_t value, int g, int s)
 {
     return value + (g & (s | value));
 }
 
-uint16_t float2half_full(uint32_t f)
+static inline uint16_t float2half_full(uint32_t f)
 {
 
     uint16_t sign = (f >> 16) & 0x8000;
@@ -186,135 +195,130 @@ uint64_t rand_uint64(void) {
   return r;
 }
 
-#define TEST_SIZE 10000000
-
-void perf_test()
+void test_hardware_perf(uint32_t *data, uint16_t *result, int data_size)
 {
-    uint64_t freq = get_timer_frequency();
-
-    union {
-        uint32_t i;
-        float    f;
-    } value;
-
-    // srand(0);
-    srand(time(NULL));
-
-    printf("runs: %d\n", TEST_SIZE);
-
-    uint32_t *data = (uint32_t*) malloc(sizeof(uint32_t) * TEST_SIZE);
-    uint16_t *result = (uint16_t*) malloc(sizeof(uint16_t) * TEST_SIZE);
-
-    for (int i =0; i < TEST_SIZE; i++) {
-        data[i] = rand_uint64();
+    int_float value;
+    for (int i =0; i < data_size; i++) {
+        value.i = data[i];
+        result[i] = to_f16(value.f);
     }
-
-    {
-        uint64_t start = get_timer();
-        for (int i =0; i < TEST_SIZE; i++) {
-            value.i = data[i];
-            result[i] = to_f16(value.f);
-        }
-
-        uint64_t end = get_timer();
-        uint64_t dur = (end - start);
-
-        double elapse = (double)dur / (double)freq;
-        printf("hardware            : %f secs\n", elapse);
-    }
-
-    {
-        uint64_t start = get_timer();
-        for (int i =0; i < TEST_SIZE; i++) {
-            value.i = data[i];
-            result[i] = table_float2half_no_round(value.i, &f2h_table);
-        }
-
-        uint64_t end = get_timer();
-        uint64_t dur = (end - start);
-
-        double elapse = (double)dur / (double)freq;
-        printf("table no rounding   : %f secs\n", elapse);
-    }
-
-    {
-        uint64_t start = get_timer();
-        for (int i =0; i < TEST_SIZE; i++) {
-            value.i = data[i];
-            result[i] = table_float2half_round(value.i, &f2h_table);
-        }
-
-        uint64_t end = get_timer();
-        uint64_t dur = (end - start);
-
-        double elapse = (double)dur / (double)freq;
-        printf("table with rounding : %f secs\n", elapse);
-    }
-
-    {
-        uint64_t start = get_timer();
-        for (int i =0; i < TEST_SIZE; i++) {
-            value.i = data[i];
-            result[i] = float2half_full(value.i);
-        }
-
-        uint64_t end = get_timer();
-        uint64_t dur = (end - start);
-
-        double elapse = (double)dur / (double)freq;
-        printf("no table            : %f secs\n", elapse);
-    }
-
-    {
-        uint64_t start = get_timer();
-        for (int i =0; i < TEST_SIZE; i++) {
-            value.i = data[i];
-            result[i] = imath_float_to_half(value.f);
-        }
-
-        uint64_t end = get_timer();
-        uint64_t dur = (end - start);
-
-        double elapse = (double)dur / (double)freq;
-        printf("imath half          : %f secs\n", elapse);
-    }
-
-    free(data);
-    free(result);
-
 }
 
-int main(int argc, char *argv[])
+void test_table_perf(uint32_t *data, uint16_t *result, int data_size)
 {
+    int_float value;
+    for (int i =0; i < data_size; i++) {
+        value.i = data[i];
+        result[i] = table_float2half_no_round(value.i);
+    }
+}
+
+void test_table_rounding_perf(uint32_t *data, uint16_t *result, int data_size)
+{
+    int_float value;
+    for (int i =0; i < data_size; i++) {
+        value.i = data[i];
+        result[i] = table_float2half_round(value.i);
+    }
+}
+
+void test_float2half_full_perf(uint32_t *data, uint16_t *result, int data_size)
+{
+    int_float value;
+    for (int i =0; i < data_size; i++) {
+        value.i = data[i];
+        result[i] = float2half_full(value.i);
+    }
+}
+
+void test_imath_float_to_half_perf(uint32_t *data, uint16_t *result, int data_size)
+{
+    int_float value;
+    for (int i =0; i < data_size; i++) {
+        value.i = data[i];
+        result[i] = imath_float_to_half(value.f);
+    }
+}
+
+#define PRINT_ERROR_RESULT(name, count) \
+    printf("%-20s : %f%% err\n", name,   100.0 * count/(double)UINT32_MAX)
+
+void test_hardware_accuracy()
+{
+    int_float value;
     uint16_t r0, r1;
-    union {
-        uint32_t i;
-        float    f;
-    } value;
 
-    init_float2half_tables(&f2h_table);
-
-    srand(time(NULL));
-    perf_test();
-    fflush(stdout);
+    uint32_t errors[4] = {0};
 
     for (uint64_t i =0; i <= UINT32_MAX; i++) {
         // test every possible float value
         value.i = (uint32_t)i;
-
-        // test random value
-        // value.i = rand_uint64();
-
         r0 = to_f16(value.f);
-        r1 = table_float2half_round(value.i, &f2h_table);
-        // r1 = imath_float_to_half(value.f);
-        // r1 = table_float2half_no_round(value.i, &f2h_table);
-        // r1 = float2half_full(value.i);
 
-        if (r0 != r1) {
-            printf("%g\n0x%08X 0x%04X, 0x%04X %d\n", value.f, value.i, r0, r1, r0 - r1 );
-        }
+        r1 = table_float2half_no_round(value.i);
+        errors[0] += (r0 != r1);
+
+        r1 = table_float2half_round(value.i);
+        errors[1] += (r0 != r1);
+
+        r1 = float2half_full(value.i);
+        errors[2] += (r0 != r1);
+
+        r1 = imath_float_to_half(value.f);
+        errors[3] += (r0 != r1);
     }
 
-    return 0;
+    PRINT_ERROR_RESULT("table no rounding", errors[0]);
+    PRINT_ERROR_RESULT("table rounding",    errors[1]);
+    PRINT_ERROR_RESULT("no table",          errors[2]);
+    PRINT_ERROR_RESULT("imath half",        errors[3]);
+
+}
+
+#define TIME_FUNC(name, func)                                   \
+    start = get_timer();                                        \
+    func;                                                       \
+    elapse = (double)((get_timer() - start)) / (double)freq;    \
+    printf("%-20s : %f secs\n", name, elapse)
+
+#define TEST_SIZE 10000000
+
+int main(int argc, char *argv[])
+{
+    uint16_t r0, r1;
+    int_float value;
+    uint64_t freq = get_timer_frequency();
+    uint64_t start;
+    double elapse;
+
+    init_float2half_tables(&f2h_table);
+
+    // init_test_data
+    uint32_t *data = (uint32_t*) malloc(sizeof(uint32_t) * TEST_SIZE);
+    uint16_t *result = (uint16_t*) malloc(sizeof(uint16_t) * TEST_SIZE);
+
+    if (!data || !result) {
+        printf("malloc error");
+        return 0;
+    }
+
+    // fill up buffer with random data
+    srand(time(NULL));
+    for (int i =0; i < TEST_SIZE; i++) {
+        data[i] = rand_uint64();
+    }
+
+    printf("runs: %d\n", TEST_SIZE);
+    TIME_FUNC("hardware",          test_hardware_perf(data, result, TEST_SIZE));
+    TIME_FUNC("table no rounding", test_table_perf(data, result, TEST_SIZE));
+    TIME_FUNC("table rounding",    test_table_rounding_perf(data, result, TEST_SIZE));
+    TIME_FUNC("no table",          test_float2half_full_perf(data, result, TEST_SIZE));
+    TIME_FUNC("imath half",        test_imath_float_to_half_perf(data, result, TEST_SIZE));
+
+    free(data);
+    free(result);
+    fflush(stdout);
+
+    printf("\nchecking accuracy\n");
+    test_hardware_accuracy();
 }

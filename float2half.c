@@ -191,10 +191,6 @@ uint64_t rand_uint64(void) {
 void perf_test()
 {
     uint64_t freq = get_timer_frequency();
-    uint64_t dur = 0;
-    uint64_t start = 0;
-    uint64_t end = 0;
-    double elapse;
 
     union {
         uint32_t i;
@@ -213,65 +209,75 @@ void perf_test()
         data[i] = rand_uint64();
     }
 
-    start = get_timer();
-    for (int i =0; i < TEST_SIZE; i++) {
-        value.i = data[i];
-        result[i] = to_f16(value.f);
+    {
+        uint64_t start = get_timer();
+        for (int i =0; i < TEST_SIZE; i++) {
+            value.i = data[i];
+            result[i] = to_f16(value.f);
+        }
+
+        uint64_t end = get_timer();
+        uint64_t dur = (end - start);
+
+        double elapse = (double)dur / (double)freq;
+        printf("hardware            : %f secs\n", elapse);
     }
 
-    end = get_timer();
-    dur += (end - start);
+    {
+        uint64_t start = get_timer();
+        for (int i =0; i < TEST_SIZE; i++) {
+            value.i = data[i];
+            result[i] = table_float2half_no_round(value.i, &f2h_table);
+        }
 
-    elapse = (double)dur / (double)freq;
-    printf("hardware            : %f secs\n", elapse);
+        uint64_t end = get_timer();
+        uint64_t dur = (end - start);
 
-    start = get_timer();
-    for (int i =0; i < TEST_SIZE; i++) {
-        value.i = data[i];
-        result[i] = table_float2half_round(value.i, &f2h_table);
+        double elapse = (double)dur / (double)freq;
+        printf("table no rounding   : %f secs\n", elapse);
     }
 
-    end = get_timer();
-    dur += (end - start);
+    {
+        uint64_t start = get_timer();
+        for (int i =0; i < TEST_SIZE; i++) {
+            value.i = data[i];
+            result[i] = table_float2half_round(value.i, &f2h_table);
+        }
 
-    elapse = (double)dur / (double)freq;
-    printf("table no rounding   : %f secs\n", elapse);
+        uint64_t end = get_timer();
+        uint64_t dur = (end - start);
 
-    start = get_timer();
-    for (int i =0; i < TEST_SIZE; i++) {
-        value.i = data[i];
-        result[i] = table_float2half_no_round(value.i, &f2h_table);
+        double elapse = (double)dur / (double)freq;
+        printf("table with rounding : %f secs\n", elapse);
     }
 
-    end = get_timer();
-    dur += (end - start);
+    {
+        uint64_t start = get_timer();
+        for (int i =0; i < TEST_SIZE; i++) {
+            value.i = data[i];
+            result[i] = float2half_full(value.i);
+        }
 
-    elapse = (double)dur / (double)freq;
-    printf("table with rounding : %f secs\n", elapse);
+        uint64_t end = get_timer();
+        uint64_t dur = (end - start);
 
-    start = get_timer();
-    for (int i =0; i < TEST_SIZE; i++) {
-        value.i = data[i];
-        result[i] = float2half_full(value.i);
+        double elapse = (double)dur / (double)freq;
+        printf("no table            : %f secs\n", elapse);
     }
 
-    end = get_timer();
-    dur += (end - start);
+    {
+        uint64_t start = get_timer();
+        for (int i =0; i < TEST_SIZE; i++) {
+            value.i = data[i];
+            result[i] = imath_float_to_half(value.i);
+        }
 
-    elapse = (double)dur / (double)freq;
-    printf("no table            : %f secs\n", elapse);
+        uint64_t end = get_timer();
+        uint64_t dur = (end - start);
 
-    start = get_timer();
-    for (int i =0; i < TEST_SIZE; i++) {
-        value.i = data[i];
-        result[i] = imath_float_to_half(value.i);
+        double elapse = (double)dur / (double)freq;
+        printf("imath half          : %f secs\n", elapse);
     }
-
-    end = get_timer();
-    dur += (end - start);
-
-    elapse = (double)dur / (double)freq;
-    printf("imath half          : %f secs\n", elapse);
 
     free(data);
     free(result);

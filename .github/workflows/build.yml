@@ -1,0 +1,62 @@
+name: Build
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-linux:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: build and test
+      run: sh ./build.sh
+
+    - name: "upload artifact"
+      uses: actions/upload-artifact@v3
+      with:
+        name: float2half_test_linux
+        path: |
+          float2half
+          half2float
+
+  build-macos:
+
+    runs-on: macos-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: build and test
+      run: sh ./build.sh
+
+    - name: "upload artifact"
+      uses: actions/upload-artifact@v3
+      with:
+        name: float2half_test_macos
+        path: |
+          float2half
+          half2float
+
+  build-windows:
+
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ilammy/msvc-dev-cmd@v1
+      with:
+          arch: amd64
+
+    - name: build and test
+      run: cmd /c build.bat
+
+    - name: "upload artifact"
+      uses: actions/upload-artifact@v3
+      with:
+        name: float2half_test_win64
+        path: |
+          float2half.exe
+          half2float.exe

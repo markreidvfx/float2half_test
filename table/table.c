@@ -20,28 +20,28 @@ static void init_float2half_tables(Float2HalfTables *t)
         if (e < -24) { // Very small numbers map to zero
             t->basetable[i|0x000]  = 0x0000;
             t->basetable[i|0x100]  = 0x8000;
-            t->shifttable[i|0x000] = (24 << 1) | (e == -25 ? 1 : 0);
-            t->shifttable[i|0x100] = (24 << 1) | (e == -25 ? 1 : 0);
+            t->shifttable[i|0x000] = 24;
+            t->shifttable[i|0x100] = 24;
         } else if (e < -14) { // Small numbers map to denorms
             t->basetable[i|0x000] = (0x0400>>(-e-14));
             t->basetable[i|0x100] = (0x0400>>(-e-14)) | 0x8000;
-            t->shifttable[i|0x000] = ((-e-1) << 1) | 1;
-            t->shifttable[i|0x100] = ((-e-1) << 1) | 1;
+            t->shifttable[i|0x000] = -e-1;
+            t->shifttable[i|0x100] = -e-1;
         } else if (e <= 15) { // Normal numbers just lose precision
             t->basetable[i|0x000] = ((e + 15) << 10);
             t->basetable[i|0x100] = ((e + 15) << 10) | 0x8000;
-            t->shifttable[i|0x000] = (13 << 1) | 1;
-            t->shifttable[i|0x100] = (13 << 1) | 1;
+            t->shifttable[i|0x000] = 13;
+            t->shifttable[i|0x100] = 13;
         } else if (e < 128) { // Large numbers map to Infinity
             t->basetable[i|0x000]  = 0x7C00;
             t->basetable[i|0x100]  = 0xFC00;
-            t->shifttable[i|0x000] = 24 << 1;
-            t->shifttable[i|0x100] = 24 << 1;
+            t->shifttable[i|0x000] = 24;
+            t->shifttable[i|0x100] = 24;
         } else { // Infinity and NaN's stay Infinity and NaN's
             t->basetable[i|0x000]  = 0x7C00;
             t->basetable[i|0x100]  = 0xFC00;
-            t->shifttable[i|0x000] = 13 << 1;
-            t->shifttable[i|0x100] = 13 << 1;
+            t->shifttable[i|0x000] = 13;
+            t->shifttable[i|0x100] = 13;
         }
     }
 }
@@ -52,8 +52,7 @@ static inline uint16_t to_f16(uint32_t f)
     const Float2HalfTables *t = &f2h_table;
 
     int i = (f >> 23) & 0x01FF;
-    int shift = t->shifttable[i] >> 1;
-    h = t->basetable[i] + ((f & 0x007FFFFF) >> shift);
+    h = t->basetable[i] + ((f & 0x007FFFFF) >> t->shifttable[i]);
     return h;
 }
 

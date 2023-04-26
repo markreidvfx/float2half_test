@@ -17,29 +17,32 @@ the lower 13 bits of the mantissa.
 
 # Results
 ```
-CPU: Intel(R) Xeon(R) CPU E5-2673 v3 @ 2.40GHz
-runs: 10000000
-hardware             : 0.013804 secs
-table no rounding    : 0.014273 secs
-table rounding       : 0.046890 secs
-no table             : 0.077498 secs
-imath half           : 0.073492 secs
+CPU: Intel(R) Xeon(R) Platinum 8272CL CPU @ 2.60GHz
+runs: 24, buffer size: 8294400
+                     :      min      avg     max
+hardware             : 0.008696 0.008944 0.013575 secs
+table no rounding    : 0.009876 0.009975 0.010286 secs
+table rounding       : 0.032589 0.032768 0.032862 secs
+no table             : 0.071695 0.071938 0.072825 secs
+imath half           : 0.069788 0.069915 0.070130 secs
 
 CPU: Intel(R) Core(TM) i7-10750H CPU @ 2.60GHz
-runs: 10000000
-hardware             : 0.009104 secs
-table no rounding    : 0.010024 secs
-table rounding       : 0.032269 secs
-no table             : 0.055530 secs
-imath half           : 0.053820 secs
+runs: 24, buffer size: 8294400
+                     :      min      avg     max
+hardware             : 0.004990 0.005486 0.006658 secs
+table no rounding    : 0.007825 0.008273 0.009062 secs
+table rounding       : 0.023162 0.024618 0.028471 secs
+no table             : 0.041659 0.043078 0.045137 secs
+imath half           : 0.039517 0.041032 0.042969 secs
 
 CPU Raspberry Pi 4 Model B
-runs: 10000000
-hardware             : 0.040097 secs
-table no rounding    : 0.040361 secs
-table rounding       : 0.101880 secs
-no table             : 0.131957 secs
-imath half           : 0.118630 secs
+runs: 24, buffer size: 8294400
+                     :      min      avg     max
+hardware             : 0.012348 0.014196 0.047234 secs
+table no rounding    : 0.032063 0.032174 0.032361 secs
+table rounding       : 0.084253 0.084286 0.084329 secs
+no table             : 0.109903 0.110605 0.114528 secs
+imath half           : 0.098605 0.098768 0.099076 secs
 
 accuracy compared to hardware
 table no rounding    : 8.397698% err

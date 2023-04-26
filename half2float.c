@@ -26,7 +26,7 @@ static uint32_t to_f32(uint16_t v)
 #include <immintrin.h>
 static uint32_t to_f32(uint16_t v)
 {
-    uint32_t result[4] = {};
+    uint32_t result[4] = {0};
     uint16_t src[8] = {v, v, v, v, v, v, v, v};
 
     __m128i ph = _mm_loadu_si128((__m128i*)&src);

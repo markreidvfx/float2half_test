@@ -69,7 +69,7 @@ static uint16_t to_f16(float v)
 #include <immintrin.h>
 static inline uint16_t to_f16(float v)
 {
-    uint16_t result[8] = {};
+    uint16_t result[8] = {0};
     __m128 ps =_mm_set1_ps(v);
     __m128i ph = _mm_cvtps_ph(ps, _MM_FROUND_TO_NEAREST_INT);
 

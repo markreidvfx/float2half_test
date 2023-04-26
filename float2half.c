@@ -11,6 +11,7 @@
 #include "hardware/hardware.h"
 #include "table/table.h"
 #include "table_round/table_round.h"
+#include "no_table/no_table.h"
 #include "imath/imath.h"
 
 #define MIN(a,b) (((a)<(b))?(a):(b))
@@ -89,57 +90,12 @@ static void print_cpu_name()
 #endif
 }
 
-static inline uint16_t rounded(uint32_t value, int g, int s)
-{
-    return value + (g & (s | value));
-}
-
-static inline uint16_t float2half_full(uint32_t f)
-{
-
-    uint16_t sign = (f >> 16) & 0x8000;
-    f &= 0x7FFFFFFF;
-
-     // inf or nan
-    if(f >= 0x7F800000) {
-        if (f > 0x7F800000)
-            return sign | 0x7C00 | (0x0200 | ((f >> 13) & 0x03FF));
-        return sign | 0x7C00;
-    }
-
-    // too large, round to infinity
-    if(f >= 0x47800000)
-        return sign | 0x7C00;
-
-    // exponent large enough to result in a normal number, round and return
-    if(f >= 0x38800000)
-        return rounded(sign | (((f>>23)-112)<<10) | ((f>>13)&0x03FF), (f>>12)&1, (f&0x0FFF)!=0);
-
-    // denormal
-    if(f >= 0x33000000){
-        int i = 125 - (f>>23);
-        f = (f & 0x007FFFFF) | 0x00800000;
-        return rounded(sign | (f >> (i+1)), (f>>i)&1, (f & ((1 << i) - 1 ))!=0);
-    }
-    // zero or -zero
-    return sign;
-}
-
 uint64_t rand_uint64(void) {
   uint64_t r = 0;
   for (int i=0; i<64; i += 15 /*30*/) {
     r = r*((uint64_t)RAND_MAX + 1) + rand();
   }
   return r;
-}
-
-void NOINLINE test_float2half_full_perf(uint32_t *data, uint16_t *result, int data_size)
-{
-    int_float value;
-    for (int i =0; i < data_size; i++) {
-        value.i = data[i];
-        result[i] = float2half_full(value.i);
-    }
 }
 
 #define PRINT_ERROR_RESULT(name, count) \
@@ -163,7 +119,7 @@ void test_hardware_accuracy()
         r1 = f32_to_f16_table_round(value.f);
         errors[1] += (r0 != r1);
 
-        r1 = float2half_full(value.i);
+        r1 = f32_to_f16_no_table(value.f);
         errors[2] += (r0 != r1);
 
         r1 = f32_to_f16_imath(value.f);
@@ -237,7 +193,7 @@ int main(int argc, char *argv[])
     TIME_FUNC("hardware",          f32_to_f16_buffer_hw(data, result, BUFFER_SIZE));
     TIME_FUNC("table no rounding", f32_to_f16_buffer_table(data, result, BUFFER_SIZE));
     TIME_FUNC("table rounding",    f32_to_f16_buffer_table_round(data, result, BUFFER_SIZE));
-    TIME_FUNC("no table",          test_float2half_full_perf(data, result, BUFFER_SIZE));
+    TIME_FUNC("no table",          f32_to_f16_buffer_no_table(data, result, BUFFER_SIZE));
     TIME_FUNC("imath half",        f32_to_f16_buffer_imath(data, result, BUFFER_SIZE));
 
     free(data);

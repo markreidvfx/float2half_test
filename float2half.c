@@ -5,9 +5,13 @@
 
 #include <float.h>
 #include <time.h>
+#include <math.h>
 #include <inttypes.h>
 
 #include "imath_half.h"
+
+#define MIN(a,b) (((a)<(b))?(a):(b))
+#define MAX(a,b) (((a)>(b))?(a):(b))
 
 #if defined(__x86_64__) || defined(_M_X64) || defined(i386) || defined(_M_IX86)
 #define ARCH_X86
@@ -309,13 +313,34 @@ void test_hardware_accuracy()
 
 }
 
-#define TIME_FUNC(name, func)                                   \
-    start = get_timer();                                        \
-    func;                                                       \
-    elapse = (double)((get_timer() - start)) / (double)freq;    \
-    printf("%-20s : %f secs\n", name, elapse)
+#define TEST_RUNS 24
+#define BUFFER_SIZE (1920*1080*4)
 
-#define TEST_SIZE 10000000
+void randomize_buffer(uint32_t *data)
+{
+    // fill up buffer with random data
+    for (int i =0; i < BUFFER_SIZE; i++) {
+        data[i] = rand_uint64();
+    }
+}
+
+#define TIME_FUNC(name, func)                                             \
+    min_value = INFINITY;                                                 \
+    max_value = -INFINITY;                                                \
+    average = 0.0;                                                        \
+    srand(time(NULL));                                                    \
+    for (int i = 0; i < TEST_RUNS; i++) {                                 \
+        randomize_buffer(data);                                           \
+        start = get_timer();                                              \
+        func;                                                             \
+        elapse = (double)((get_timer() - start)) / (double)freq;          \
+        min_value = MIN(min_value, elapse);                               \
+        max_value = MAX(max_value, elapse);                               \
+        average += elapse * 1.0 / (double)TEST_RUNS;                      \
+    }                                                                     \
+                                                                          \
+    printf("%-20s : %f %f %f secs\n", name, min_value, average, max_value)
+
 
 int main(int argc, char *argv[])
 {
@@ -324,36 +349,37 @@ int main(int argc, char *argv[])
     uint64_t freq = get_timer_frequency();
     uint64_t start;
     double elapse;
+    double average;
+    double min_value;
+    double max_value;
 
     init_float2half_tables(&f2h_table);
 
     // init_test_data
-    uint32_t *data = (uint32_t*) malloc(sizeof(uint32_t) * TEST_SIZE);
-    uint16_t *result = (uint16_t*) malloc(sizeof(uint16_t) * TEST_SIZE);
+    uint32_t *data = (uint32_t*) malloc(sizeof(uint32_t) * BUFFER_SIZE);
+    uint16_t *result = (uint16_t*) malloc(sizeof(uint16_t) * BUFFER_SIZE);
 
     if (!data || !result) {
         printf("malloc error");
         return 0;
     }
 
-    // fill up buffer with random data
-    srand(time(NULL));
-    for (int i =0; i < TEST_SIZE; i++) {
-        data[i] = rand_uint64();
-    }
-
     print_cpu_name();
-    printf("runs: %d\n", TEST_SIZE);
-    TIME_FUNC("hardware",          test_hardware_perf(data, result, TEST_SIZE));
-    TIME_FUNC("table no rounding", test_table_perf(data, result, TEST_SIZE));
-    TIME_FUNC("table rounding",    test_table_rounding_perf(data, result, TEST_SIZE));
-    TIME_FUNC("no table",          test_float2half_full_perf(data, result, TEST_SIZE));
-    TIME_FUNC("imath half",        test_imath_float_to_half_perf(data, result, TEST_SIZE));
+
+    printf("runs: %d, buffer size: %d\n", TEST_RUNS, BUFFER_SIZE);
+    printf("%-20s :      min      avg     max\n", " ");
+
+    TIME_FUNC("hardware",          test_hardware_perf(data, result, BUFFER_SIZE));
+    TIME_FUNC("table no rounding", test_table_perf(data, result, BUFFER_SIZE));
+    TIME_FUNC("table rounding",    test_table_rounding_perf(data, result, BUFFER_SIZE));
+    TIME_FUNC("no table",          test_float2half_full_perf(data, result, BUFFER_SIZE));
+    TIME_FUNC("imath half",        test_imath_float_to_half_perf(data, result, BUFFER_SIZE));
 
     free(data);
     free(result);
     fflush(stdout);
-
+#if 1
     printf("\nchecking accuracy\n");
     test_hardware_accuracy();
+#endif
 }

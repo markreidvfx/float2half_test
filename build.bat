@@ -5,9 +5,10 @@ setlocal
 cl /nologo /c hardware\hardware.c /O2 /Fohardware.obj || goto :error
 cl /nologo /c table\table.c /O2 /Fotable.obj || goto :error
 cl /nologo /c table_round\table_round.c /O2 /Fotable_round.obj || goto :error
+cl /nologo /c imath\imath.c /O2 /Foimath.obj || goto :error
 
-cl /nologo float2half.c -O2 /link hardware.obj table.obj table_round.obj || goto :error
-cl /nologo half2float.c -O2 /link hardware.obj table.obj table_round.obj || goto :error
+cl /nologo float2half.c -O2 /link hardware.obj table.obj table_round.obj imath.obj || goto :error
+cl /nologo half2float.c -O2 /link hardware.obj table.obj table_round.obj imath.obj || goto :error
 
 float2half.exe || goto :error
 half2float.exe || goto :error

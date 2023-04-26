@@ -1,5 +1,11 @@
-cl /nologo float2half.c -O2 || goto :error
-cl /nologo half2float.c -O2 || goto :error
+@echo off
+setlocal
+
+@REM MSVC doesn't need a flag to emit the F16C instruction, just the intrinsic
+cl /nologo /c hardware\hardware.c /O2 /Fohardware.obj || goto :error
+
+cl /nologo float2half.c -O2 /link hardware.obj || goto :error
+cl /nologo half2float.c -O2 /link hardware.obj || goto :error
 
 float2half.exe || goto :error
 half2float.exe || goto :error

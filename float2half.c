@@ -9,6 +9,7 @@
 #include <inttypes.h>
 
 #include "imath_half.h"
+#include "hardware/hardware.h"
 
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
@@ -64,31 +65,6 @@ static uint64_t get_timer(void)
 #define NOINLINE __declspec(noinline)
 #else
 #define NOINLINE __attribute__ ((noinline))
-#endif
-
-
-#ifdef USE_ARM
-static uint16_t to_f16(float v)
-{
-    union {
-        _Float16 f;
-        uint16_t i;
-    } u;
-    u.f = v;
-    return u.i;
-}
-#else
-#include <immintrin.h>
-static inline uint16_t to_f16(float v)
-{
-    uint16_t result[8] = {0};
-    __m128 ps =_mm_set1_ps(v);
-    __m128i ph = _mm_cvtps_ph(ps, _MM_FROUND_TO_NEAREST_INT);
-
-    _mm_storeu_si128((__m128i*)result, ph);
-
-    return result[0];
-}
 #endif
 
 static void print_cpu_name()
@@ -233,15 +209,6 @@ uint64_t rand_uint64(void) {
   return r;
 }
 
-void NOINLINE test_hardware_perf(uint32_t *data, uint16_t *result, int data_size)
-{
-    int_float value;
-    for (int i =0; i < data_size; i++) {
-        value.i = data[i];
-        result[i] = to_f16(value.f);
-    }
-}
-
 void NOINLINE test_table_perf(uint32_t *data, uint16_t *result, int data_size)
 {
     int_float value;
@@ -291,7 +258,7 @@ void test_hardware_accuracy()
     for (uint64_t i =0; i <= UINT32_MAX; i++) {
         // test every possible float value
         value.i = (uint32_t)i;
-        r0 = to_f16(value.f);
+        r0 = f32_to_f16_hw(value.f);
 
         r1 = table_float2half_no_round(value.i);
         errors[0] += (r0 != r1);
@@ -369,7 +336,7 @@ int main(int argc, char *argv[])
     printf("runs: %d, buffer size: %d\n", TEST_RUNS, BUFFER_SIZE);
     printf("%-20s :      min      avg     max\n", " ");
 
-    TIME_FUNC("hardware",          test_hardware_perf(data, result, BUFFER_SIZE));
+    TIME_FUNC("hardware",          f32_to_f16_buffer_hw(data, result, BUFFER_SIZE));
     TIME_FUNC("table no rounding", test_table_perf(data, result, BUFFER_SIZE));
     TIME_FUNC("table rounding",    test_table_rounding_perf(data, result, BUFFER_SIZE));
     TIME_FUNC("no table",          test_float2half_full_perf(data, result, BUFFER_SIZE));

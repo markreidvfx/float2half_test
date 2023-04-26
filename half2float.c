@@ -5,38 +5,7 @@
 
 #include <float.h>
 #include <time.h>
-
-#ifdef USE_ARM
-static uint32_t to_f32(uint16_t v)
-{
-    union {
-        float f;
-        uint32_t i;
-    }a;
-    union {
-        _Float16 f;
-        uint16_t i;
-    } b;
-
-    b.i = v;
-    a.f = b.f;
-    return a.i;
-}
-#else
-#include <immintrin.h>
-static uint32_t to_f32(uint16_t v)
-{
-    uint32_t result[4] = {0};
-    uint16_t src[8] = {v, v, v, v, v, v, v, v};
-
-    __m128i ph = _mm_loadu_si128((__m128i*)&src);
-    __m128 ps = _mm_cvtph_ps(ph);
-
-    _mm_storeu_si128((__m128i*)result, _mm_castps_si128(ps));
-
-    return result[0];
-}
-#endif
+#include "hardware/hardware.h"
 
 typedef struct Half2FloatTables {
     uint32_t mantissatable[3072];
@@ -114,7 +83,7 @@ int main(int argc, char *argv[])
     ff_init_half2float_tables(&h2f_table);
 
     for (int i = 0; i < UINT16_MAX; i++) {
-        a.i = to_f32(i);
+        a.i = f16_to_f32_hw(i);
         b.i = table_half2float(i, &h2f_table);
 
         if (a.i != b.i) {

@@ -48,6 +48,12 @@ static uint64_t get_timer(void)
 }
 #endif
 
+#if _MSC_VER
+#define NOINLINE __declspec(noinline)
+#else
+#define NOINLINE __attribute__ ((noinline))
+#endif
+
 
 #ifdef USE_ARM
 static uint16_t to_f16(float v)
@@ -195,7 +201,7 @@ uint64_t rand_uint64(void) {
   return r;
 }
 
-void test_hardware_perf(uint32_t *data, uint16_t *result, int data_size)
+void NOINLINE test_hardware_perf(uint32_t *data, uint16_t *result, int data_size)
 {
     int_float value;
     for (int i =0; i < data_size; i++) {
@@ -204,7 +210,7 @@ void test_hardware_perf(uint32_t *data, uint16_t *result, int data_size)
     }
 }
 
-void test_table_perf(uint32_t *data, uint16_t *result, int data_size)
+void NOINLINE test_table_perf(uint32_t *data, uint16_t *result, int data_size)
 {
     int_float value;
     for (int i =0; i < data_size; i++) {
@@ -213,7 +219,7 @@ void test_table_perf(uint32_t *data, uint16_t *result, int data_size)
     }
 }
 
-void test_table_rounding_perf(uint32_t *data, uint16_t *result, int data_size)
+void NOINLINE test_table_rounding_perf(uint32_t *data, uint16_t *result, int data_size)
 {
     int_float value;
     for (int i =0; i < data_size; i++) {
@@ -222,7 +228,7 @@ void test_table_rounding_perf(uint32_t *data, uint16_t *result, int data_size)
     }
 }
 
-void test_float2half_full_perf(uint32_t *data, uint16_t *result, int data_size)
+void NOINLINE test_float2half_full_perf(uint32_t *data, uint16_t *result, int data_size)
 {
     int_float value;
     for (int i =0; i < data_size; i++) {
@@ -231,7 +237,7 @@ void test_float2half_full_perf(uint32_t *data, uint16_t *result, int data_size)
     }
 }
 
-void test_imath_float_to_half_perf(uint32_t *data, uint16_t *result, int data_size)
+void NOINLINE test_imath_float_to_half_perf(uint32_t *data, uint16_t *result, int data_size)
 {
     int_float value;
     for (int i =0; i < data_size; i++) {

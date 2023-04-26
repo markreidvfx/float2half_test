@@ -9,6 +9,10 @@
 
 #include "imath_half.h"
 
+#if defined(__x86_64__) || defined(_M_X64) || defined(i386) || defined(_M_IX86)
+#define ARCH_X86
+#endif
+
 typedef union {
         uint32_t i;
         float    f;
@@ -34,6 +38,10 @@ static uint64_t get_timer(void)
 #else
 #include <time.h>
 #include <unistd.h>
+#ifdef ARCH_X86
+#include <cpuid.h>
+#endif
+
 static uint64_t get_timer_frequency()
 {
     uint64_t Result = 1000000000ull;
@@ -78,6 +86,26 @@ static inline uint16_t to_f16(float v)
     return result[0];
 }
 #endif
+
+static void print_cpu_name()
+{
+#if defined(ARCH_X86)
+    char CPU[65] = {0};
+    for(int i = 0; i < 3; ++i)
+    {
+#if _WIN32
+        __cpuid((int *)(CPU + 16*i), 0x80000002 + i);
+#else
+        __get_cpuid(0x80000002 + i,
+                    (int unsigned *)(CPU + 16*i),
+                    (int unsigned *)(CPU + 16*i + 4),
+                    (int unsigned *)(CPU + 16*i + 8),
+                    (int unsigned *)(CPU + 16*i + 12));
+#endif
+    }
+    printf("CPU: %s\n", CPU);
+#endif
+}
 
 typedef struct Float2HalfTables {
     uint16_t basetable[512];
@@ -314,6 +342,7 @@ int main(int argc, char *argv[])
         data[i] = rand_uint64();
     }
 
+    print_cpu_name();
     printf("runs: %d\n", TEST_SIZE);
     TIME_FUNC("hardware",          test_hardware_perf(data, result, TEST_SIZE));
     TIME_FUNC("table no rounding", test_table_perf(data, result, TEST_SIZE));

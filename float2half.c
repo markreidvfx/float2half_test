@@ -126,8 +126,6 @@ void test_hardware_accuracy()
 
 }
 
-#define TEST_RUNS 24
-#define BUFFER_SIZE (1920*1080*4)
 
 uint32_t rand_uint32(void)
 {
@@ -145,10 +143,10 @@ int rand_uint32_real()
     }
 }
 
-void randomize_buffer(uint32_t *data, int real_only)
+void randomize_buffer(uint32_t *data, size_t size, int real_only)
 {
     // fill up buffer with random data
-    for (int i =0; i < BUFFER_SIZE; i++) {
+    for (int i =0; i < size; i++) {
         if (real_only)
             data[i] = rand_uint32_real();
         else
@@ -156,19 +154,19 @@ void randomize_buffer(uint32_t *data, int real_only)
     }
 }
 
-#define TIME_FUNC(name, real_only, func)                                  \
+#define TIME_FUNC(name, func, buffer_size, runs)                          \
     min_value = INFINITY;                                                 \
     max_value = -INFINITY;                                                \
     average = 0.0;                                                        \
-    srand(time(NULL));                                                    \
-    for (int i = 0; i < TEST_RUNS; i++) {                                 \
-        randomize_buffer(data, real_only);                                \
+    ptr = data;                                                           \
+    for (int i = 0; i < runs; i++) {                                      \
         start = get_timer();                                              \
-        func;                                                             \
+        func(ptr, result, buffer_size);                                   \
         elapse = (double)((get_timer() - start)) / (double)freq;          \
         min_value = MIN(min_value, elapse);                               \
         max_value = MAX(max_value, elapse);                               \
-        average += elapse * 1.0 / (double)TEST_RUNS;                      \
+        average += elapse * 1.0 / (double)runs;                           \
+        ptr += buffer_size;                                               \
     }                                                                     \
                                                                           \
     printf("%-20s : %f %f %f secs\n", name, min_value, average, max_value)
@@ -184,44 +182,54 @@ int main(int argc, char *argv[])
     double average;
     double min_value;
     double max_value;
+    uint32_t *ptr;
 
     init_table();
     init_table_round();
 
+#define TEST_RUNS 100
+#define BUFFER_SIZE (1920*1080*4)
+
     // init_test_data
-    uint32_t *data = (uint32_t*) malloc(sizeof(uint32_t) * BUFFER_SIZE);
-    uint16_t *result = (uint16_t*) malloc(sizeof(uint16_t) * BUFFER_SIZE);
+    uint32_t *data = (uint32_t*) malloc(sizeof(uint32_t) * BUFFER_SIZE * TEST_RUNS);
+    uint16_t *result = (uint16_t*) malloc(sizeof(uint16_t) * BUFFER_SIZE * TEST_RUNS);
 
     if (!data || !result) {
         printf("malloc error");
-        return 0;
+        return -1;
     }
 
     print_cpu_name();
 
+    srand(time(NULL));
     printf("\nruns: %d, buffer size: %d, random f32 <= HALF_MAX\n", TEST_RUNS, BUFFER_SIZE);
+    randomize_buffer(data, BUFFER_SIZE * TEST_RUNS, 1);
+
     printf("%-20s :      min      avg     max\n", " ");
+    TIME_FUNC("hardware",          f32_to_f16_buffer_hw,          BUFFER_SIZE, TEST_RUNS);
+    TIME_FUNC("table no rounding", f32_to_f16_buffer_table,       BUFFER_SIZE, TEST_RUNS);
+    TIME_FUNC("table rounding",    f32_to_f16_buffer_table_round, BUFFER_SIZE, TEST_RUNS);
+    TIME_FUNC("no table",          f32_to_f16_buffer_no_table,    BUFFER_SIZE, TEST_RUNS);
+    TIME_FUNC("imath half",        f32_to_f16_buffer_imath,       BUFFER_SIZE, TEST_RUNS);
 
-    TIME_FUNC("hardware",          1, f32_to_f16_buffer_hw(data, result, BUFFER_SIZE));
-    TIME_FUNC("table no rounding", 1, f32_to_f16_buffer_table(data, result, BUFFER_SIZE));
-    TIME_FUNC("table rounding",    1, f32_to_f16_buffer_table_round(data, result, BUFFER_SIZE));
-    TIME_FUNC("no table",          1, f32_to_f16_buffer_no_table(data, result, BUFFER_SIZE));
-    TIME_FUNC("imath half",        1, f32_to_f16_buffer_imath(data, result, BUFFER_SIZE));
-
+    srand(time(NULL));
     printf("\nruns: %d, buffer size: %d, random f32 full +inf+nan\n", TEST_RUNS, BUFFER_SIZE);
-    printf("%-20s :      min      avg     max\n", " ");
+    randomize_buffer(data, BUFFER_SIZE * TEST_RUNS, 0);
 
-    TIME_FUNC("hardware",          0, f32_to_f16_buffer_hw(data, result, BUFFER_SIZE));
-    TIME_FUNC("table no rounding", 0, f32_to_f16_buffer_table(data, result, BUFFER_SIZE));
-    TIME_FUNC("table rounding",    0, f32_to_f16_buffer_table_round(data, result, BUFFER_SIZE));
-    TIME_FUNC("no table",          0, f32_to_f16_buffer_no_table(data, result, BUFFER_SIZE));
-    TIME_FUNC("imath half",        0, f32_to_f16_buffer_imath(data, result, BUFFER_SIZE));
+    printf("%-20s :      min      avg     max\n", " ");
+    TIME_FUNC("hardware",          f32_to_f16_buffer_hw,          BUFFER_SIZE, TEST_RUNS);
+    TIME_FUNC("table no rounding", f32_to_f16_buffer_table,       BUFFER_SIZE, TEST_RUNS);
+    TIME_FUNC("table rounding",    f32_to_f16_buffer_table_round, BUFFER_SIZE, TEST_RUNS);
+    TIME_FUNC("no table",          f32_to_f16_buffer_no_table,    BUFFER_SIZE, TEST_RUNS);
+    TIME_FUNC("imath half",        f32_to_f16_buffer_imath,       BUFFER_SIZE, TEST_RUNS);
 
     free(data);
     free(result);
     fflush(stdout);
+
 #if 1
     printf("\nchecking accuracy\n");
     test_hardware_accuracy();
 #endif
+
 }

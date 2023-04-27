@@ -137,8 +137,8 @@ int rand_uint32_real()
     int_float v;
     for (;;) {
         v.i = rand_uint32();
-        // if (!isnan(v.f) && !isinf(v.f) && fabsf(v.f) <= 65504.0f)
-        if ((v.i &= 0x7FFFFFFF) <= 0x477fe000)
+        // if ((v.i &= 0x7FFFFFFF) <= 0x477fe000)
+        if (!isnan(v.f) && !isinf(v.f) && fabsf(v.f) <= 65504.0f)
             return v.i;
     }
 }
@@ -151,6 +151,8 @@ void randomize_buffer(uint32_t *data, size_t size, int real_only)
             data[i] = rand_uint32_real();
         else
             data[i] = rand_uint32();
+
+        // printf("0x%08x\n", data[i]);
     }
 }
 
@@ -187,7 +189,7 @@ int main(int argc, char *argv[])
     init_table();
     init_table_round();
 
-#define TEST_RUNS 100
+#define TEST_RUNS 50
 #define BUFFER_SIZE (1920*1080*4)
 
     // init_test_data
@@ -211,6 +213,8 @@ int main(int argc, char *argv[])
     TIME_FUNC("table rounding",    f32_to_f16_buffer_table_round, BUFFER_SIZE, TEST_RUNS);
     TIME_FUNC("no table",          f32_to_f16_buffer_no_table,    BUFFER_SIZE, TEST_RUNS);
     TIME_FUNC("imath half",        f32_to_f16_buffer_imath,       BUFFER_SIZE, TEST_RUNS);
+
+    fflush(stdout);
 
     srand(time(NULL));
     printf("\nruns: %d, buffer size: %d, random f32 full +inf+nan\n", TEST_RUNS, BUFFER_SIZE);

@@ -10,9 +10,11 @@ cl /nologo /c imath\imath.c /O2 /Foimath.obj || goto :error
 cl /nologo /c cpython\cpython.c /O2 /Focpython.obj || goto :error
 cl /nologo /c numpy\numpy.c /O2 /Fonumpy.obj || goto :error
 cl /nologo /c tursa\tursa.c /O2 /Fotursa.obj || goto :error
+cl /nologo /c ryg\ryg.c /O2 /Foryg.obj || goto :error
+cl /nologo /c maratyszcza\maratyszcza.c /O2 /Fomaratyszcza.obj || goto :error
 
-cl /nologo float2half.c -O2 /link hardware.obj table.obj table_round.obj no_table.obj imath.obj cpython.obj numpy.obj tursa.obj || goto :error
-cl /nologo half2float.c -O2 /link hardware.obj table.obj table_round.obj no_table.obj imath.obj cpython.obj numpy.obj tursa.obj || goto :error
+cl /nologo float2half.c -O2 /link hardware.obj table.obj table_round.obj no_table.obj imath.obj cpython.obj numpy.obj tursa.obj ryg.obj maratyszcza.obj || goto :error
+cl /nologo half2float.c -O2 /link hardware.obj table.obj table_round.obj no_table.obj imath.obj cpython.obj numpy.obj tursa.obj ryg.obj maratyszcza.obj || goto :error
 
 float2half.exe || goto :error
 half2float.exe || goto :error

@@ -16,9 +16,11 @@ $CC -O3 -c no_table/no_table.c
 $CC -O3 -c numpy/numpy.c
 $CC -O3 -c imath/imath.c
 $CC -O3 -c tursa/tursa.c
+$CC -O3 -c ryg/ryg.c
+$CC -O3 -c maratyszcza/maratyszcza.c
 
-$CC -O3 float2half.c hardware.o table.o table_round.o no_table.o imath.o cpython.o numpy.o tursa.o -o float2half_aarch64
-$CC -O3 half2float.c hardware.o table.o table_round.o no_table.o imath.o cpython.o numpy.o tursa.o -o half2float_aarch64
+$CC -O3 float2half.c hardware.o table.o table_round.o no_table.o imath.o cpython.o numpy.o tursa.o ryg.o maratyszcza.o -o float2half_aarch64
+$CC -O3 half2float.c hardware.o table.o table_round.o no_table.o imath.o cpython.o numpy.o tursa.o ryg.o maratyszcza.o -o half2float_aarch64
 
 ./float2half_aarch64
 ./half2float_aarch64
@@ -40,10 +42,11 @@ $CC -O3 -c no_table/no_table.c
 $CC -O3 -c numpy/numpy.c
 $CC -O3 -c imath/imath.c
 $CC -O3 -c tursa/tursa.c
+$CC -O3 -c ryg/ryg.c
+$CC -O3 -c maratyszcza/maratyszcza.c
 
-
-$CC -O3 float2half.c hardware.o table.o table_round.o no_table.o imath.o cpython.o numpy.o tursa.o -o float2half_arm
-$CC -O3 half2float.c hardware.o table.o table_round.o no_table.o imath.o cpython.o numpy.o tursa.o -o half2float_arm
+$CC -O3 float2half.c hardware.o table.o table_round.o no_table.o imath.o cpython.o numpy.o tursa.o ryg.o maratyszcza.o -o float2half_arm
+$CC -O3 half2float.c hardware.o table.o table_round.o no_table.o imath.o cpython.o numpy.o tursa.o ryg.o maratyszcza.o -o half2float_arm
 
 ./float2half_arm
 ./half2float_arm
@@ -54,14 +57,16 @@ $CC -O3 -mf16c -c hardware/hardware.c
 $CC -O3 -mtune=generic -c table/table.c
 $CC -O3 -mtune=generic -c table_round/table_round.c
 $CC -O3 -mtune=generic -c no_table/no_table.c
+$CC -O3 -mtune=generic -c cpython/cpython.c
 $CC -O3 -mtune=generic -c numpy/numpy.c
 $CC -O3 -mtune=generic -c imath/imath.c
 $CC -O3 -mtune=generic -c tursa/tursa.c
-$CC -O3 -mtune=generic -c cpython/cpython.c
+$CC -O3 -mtune=generic -c ryg/ryg.c
+$CC -O3 -mtune=generic -c maratyszcza/maratyszcza.c
 
 
-$CC -O3 float2half.c hardware.o table.o table_round.o no_table.o imath.o cpython.o numpy.o tursa.o -o float2half
-$CC -O3 half2float.c hardware.o table.o table_round.o no_table.o imath.o cpython.o numpy.o tursa.o -o half2float
+$CC -O3 float2half.c hardware.o table.o table_round.o no_table.o imath.o cpython.o numpy.o tursa.o ryg.o maratyszcza.o -o float2half
+$CC -O3 half2float.c hardware.o table.o table_round.o no_table.o imath.o cpython.o numpy.o tursa.o ryg.o maratyszcza.o -o half2float
 
 ./float2half
 ./half2float

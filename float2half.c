@@ -13,10 +13,12 @@
 #include "table/table.h"
 #include "table_round/table_round.h"
 #include "no_table/no_table.h"
-#include "numpy/numpy.h"
-#include "tursa/tursa.h"
-#include "imath/imath.h"
 #include "cpython/cpython.h"
+#include "numpy/numpy.h"
+#include "imath/imath.h"
+#include "tursa/tursa.h"
+#include "ryg/ryg.h"
+#include "maratyszcza/maratyszcza.h"
 
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
@@ -102,7 +104,7 @@ void test_hardware_accuracy()
     int_float value;
     uint16_t r0, r1;
 
-    uint32_t errors[7] = {0};
+    uint32_t errors[9] = {0};
 
     for (uint64_t i =0; i <= UINT32_MAX; i++) {
         // test every possible float value
@@ -129,6 +131,12 @@ void test_hardware_accuracy()
 
         r1 = f32_to_f16_tursa(value.f);
         errors[6] += (r0 != r1);
+
+        r1 = f32_to_f16_ryg(value.f);
+        errors[7] += (r0 != r1);
+
+        r1 = f32_to_f16_maratyszcza(value.f);
+        errors[8] += (r0 != r1);
     }
 
     PRINT_ERROR_RESULT("table no rounding", errors[0]);
@@ -138,6 +146,8 @@ void test_hardware_accuracy()
     PRINT_ERROR_RESULT("cpython",           errors[4]);
     PRINT_ERROR_RESULT("numpy",             errors[5]);
     PRINT_ERROR_RESULT("tursa",             errors[6]);
+    PRINT_ERROR_RESULT("ryg",               errors[7]);
+    PRINT_ERROR_RESULT("maratyszcza",       errors[8]);
 
 }
 
@@ -232,6 +242,8 @@ int main(int argc, char *argv[])
     TIME_FUNC("cpython",           f32_to_f16_buffer_cpython,     BUFFER_SIZE, TEST_RUNS);
     TIME_FUNC("numpy",             f32_to_f16_buffer_numpy,       BUFFER_SIZE, TEST_RUNS);
     TIME_FUNC("tursa",             f32_to_f16_buffer_tursa,       BUFFER_SIZE, TEST_RUNS);
+    TIME_FUNC("ryg",               f32_to_f16_buffer_ryg,         BUFFER_SIZE, TEST_RUNS);
+    TIME_FUNC("maratyszcza",       f32_to_f16_buffer_maratyszcza, BUFFER_SIZE, TEST_RUNS);
 
     fflush(stdout);
 
@@ -248,6 +260,8 @@ int main(int argc, char *argv[])
     TIME_FUNC("cpython",           f32_to_f16_buffer_cpython,     BUFFER_SIZE, TEST_RUNS);
     TIME_FUNC("numpy",             f32_to_f16_buffer_numpy,       BUFFER_SIZE, TEST_RUNS);
     TIME_FUNC("tursa",             f32_to_f16_buffer_tursa,       BUFFER_SIZE, TEST_RUNS);
+    TIME_FUNC("ryg",               f32_to_f16_buffer_ryg,         BUFFER_SIZE, TEST_RUNS);
+    TIME_FUNC("maratyszcza",       f32_to_f16_buffer_maratyszcza, BUFFER_SIZE, TEST_RUNS);
 
 #endif
 

@@ -16,6 +16,7 @@
 #include "numpy/numpy.h"
 #include "tursa/tursa.h"
 #include "imath/imath.h"
+#include "cpython/cpython.h"
 
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
@@ -101,7 +102,7 @@ void test_hardware_accuracy()
     int_float value;
     uint16_t r0, r1;
 
-    uint32_t errors[6] = {0};
+    uint32_t errors[7] = {0};
 
     for (uint64_t i =0; i <= UINT32_MAX; i++) {
         // test every possible float value
@@ -120,19 +121,23 @@ void test_hardware_accuracy()
         r1 = f32_to_f16_imath(value.f);
         errors[3] += (r0 != r1);
 
-        r1 = f32_to_f16_numpy(value.f);
+        r1 = f32_to_f16_cpython(value.f);
         errors[4] += (r0 != r1);
 
-        r1 = f32_to_f16_tursa(value.f);
+        r1 = f32_to_f16_numpy(value.f);
         errors[5] += (r0 != r1);
+
+        r1 = f32_to_f16_tursa(value.f);
+        errors[6] += (r0 != r1);
     }
 
     PRINT_ERROR_RESULT("table no rounding", errors[0]);
     PRINT_ERROR_RESULT("table rounding",    errors[1]);
     PRINT_ERROR_RESULT("no table",          errors[2]);
     PRINT_ERROR_RESULT("imath half",        errors[3]);
-    PRINT_ERROR_RESULT("numpy",             errors[4]);
-    PRINT_ERROR_RESULT("tursa",             errors[5]);
+    PRINT_ERROR_RESULT("cpython",           errors[4]);
+    PRINT_ERROR_RESULT("numpy",             errors[5]);
+    PRINT_ERROR_RESULT("tursa",             errors[6]);
 
 }
 
@@ -213,6 +218,7 @@ int main(int argc, char *argv[])
 
     print_cpu_name();
 
+#if 1
     srand(time(NULL));
     printf("\nruns: %d, buffer size: %d, random f32 <= HALF_MAX\n", TEST_RUNS, BUFFER_SIZE);
     randomize_buffer(data, BUFFER_SIZE * TEST_RUNS, 1);
@@ -223,6 +229,7 @@ int main(int argc, char *argv[])
     TIME_FUNC("table rounding",    f32_to_f16_buffer_table_round, BUFFER_SIZE, TEST_RUNS);
     TIME_FUNC("no table",          f32_to_f16_buffer_no_table,    BUFFER_SIZE, TEST_RUNS);
     TIME_FUNC("imath half",        f32_to_f16_buffer_imath,       BUFFER_SIZE, TEST_RUNS);
+    TIME_FUNC("cpython",           f32_to_f16_buffer_cpython,     BUFFER_SIZE, TEST_RUNS);
     TIME_FUNC("numpy",             f32_to_f16_buffer_numpy,       BUFFER_SIZE, TEST_RUNS);
     TIME_FUNC("tursa",             f32_to_f16_buffer_tursa,       BUFFER_SIZE, TEST_RUNS);
 
@@ -238,8 +245,11 @@ int main(int argc, char *argv[])
     TIME_FUNC("table rounding",    f32_to_f16_buffer_table_round, BUFFER_SIZE, TEST_RUNS);
     TIME_FUNC("no table",          f32_to_f16_buffer_no_table,    BUFFER_SIZE, TEST_RUNS);
     TIME_FUNC("imath half",        f32_to_f16_buffer_imath,       BUFFER_SIZE, TEST_RUNS);
+    TIME_FUNC("cpython",           f32_to_f16_buffer_cpython,     BUFFER_SIZE, TEST_RUNS);
     TIME_FUNC("numpy",             f32_to_f16_buffer_numpy,       BUFFER_SIZE, TEST_RUNS);
     TIME_FUNC("tursa",             f32_to_f16_buffer_tursa,       BUFFER_SIZE, TEST_RUNS);
+
+#endif
 
     free(data);
     free(result);

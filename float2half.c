@@ -7,6 +7,7 @@
 #include <time.h>
 #include <math.h>
 #include <inttypes.h>
+#include <assert.h>
 
 #include "hardware/hardware.h"
 #include "table/table.h"
@@ -90,14 +91,6 @@ static void print_cpu_name()
 #endif
 }
 
-uint64_t rand_uint64(void) {
-  uint64_t r = 0;
-  for (int i=0; i<64; i += 15 /*30*/) {
-    r = r*((uint64_t)RAND_MAX + 1) + rand();
-  }
-  return r;
-}
-
 #define PRINT_ERROR_RESULT(name, count) \
     printf("%-20s : %f%% err\n", name,   100.0 * count/(double)UINT32_MAX)
 
@@ -136,21 +129,40 @@ void test_hardware_accuracy()
 #define TEST_RUNS 24
 #define BUFFER_SIZE (1920*1080*4)
 
-void randomize_buffer(uint32_t *data)
+uint32_t rand_uint32(void)
 {
-    // fill up buffer with random data
-    for (int i =0; i < BUFFER_SIZE; i++) {
-        data[i] = rand_uint64();
+  return  ((0x7fff & rand()) << 30) | ((0x7fff & rand()) << 15) | (0x7fff & rand());
+}
+
+int rand_uint32_real()
+{
+    int_float v;
+    for (;;) {
+        v.i = rand_uint32();
+        // if (!isnan(v.f) && !isinf(v.f) && fabsf(v.f) <= 65504.0f)
+        if ((v.i &= 0x7FFFFFFF) <= 0x477fe000)
+            return v.i;
     }
 }
 
-#define TIME_FUNC(name, func)                                             \
+void randomize_buffer(uint32_t *data, int real_only)
+{
+    // fill up buffer with random data
+    for (int i =0; i < BUFFER_SIZE; i++) {
+        if (real_only)
+            data[i] = rand_uint32_real();
+        else
+            data[i] = rand_uint32();
+    }
+}
+
+#define TIME_FUNC(name, real_only, func)                                  \
     min_value = INFINITY;                                                 \
     max_value = -INFINITY;                                                \
     average = 0.0;                                                        \
     srand(time(NULL));                                                    \
     for (int i = 0; i < TEST_RUNS; i++) {                                 \
-        randomize_buffer(data);                                           \
+        randomize_buffer(data, real_only);                                \
         start = get_timer();                                              \
         func;                                                             \
         elapse = (double)((get_timer() - start)) / (double)freq;          \
@@ -187,14 +199,23 @@ int main(int argc, char *argv[])
 
     print_cpu_name();
 
-    printf("runs: %d, buffer size: %d\n", TEST_RUNS, BUFFER_SIZE);
+    printf("\nruns: %d, buffer size: %d, random f32 <= HALF_MAX\n", TEST_RUNS, BUFFER_SIZE);
     printf("%-20s :      min      avg     max\n", " ");
 
-    TIME_FUNC("hardware",          f32_to_f16_buffer_hw(data, result, BUFFER_SIZE));
-    TIME_FUNC("table no rounding", f32_to_f16_buffer_table(data, result, BUFFER_SIZE));
-    TIME_FUNC("table rounding",    f32_to_f16_buffer_table_round(data, result, BUFFER_SIZE));
-    TIME_FUNC("no table",          f32_to_f16_buffer_no_table(data, result, BUFFER_SIZE));
-    TIME_FUNC("imath half",        f32_to_f16_buffer_imath(data, result, BUFFER_SIZE));
+    TIME_FUNC("hardware",          1, f32_to_f16_buffer_hw(data, result, BUFFER_SIZE));
+    TIME_FUNC("table no rounding", 1, f32_to_f16_buffer_table(data, result, BUFFER_SIZE));
+    TIME_FUNC("table rounding",    1, f32_to_f16_buffer_table_round(data, result, BUFFER_SIZE));
+    TIME_FUNC("no table",          1, f32_to_f16_buffer_no_table(data, result, BUFFER_SIZE));
+    TIME_FUNC("imath half",        1, f32_to_f16_buffer_imath(data, result, BUFFER_SIZE));
+
+    printf("\nruns: %d, buffer size: %d, random f32 full +inf+nan\n", TEST_RUNS, BUFFER_SIZE);
+    printf("%-20s :      min      avg     max\n", " ");
+
+    TIME_FUNC("hardware",          0, f32_to_f16_buffer_hw(data, result, BUFFER_SIZE));
+    TIME_FUNC("table no rounding", 0, f32_to_f16_buffer_table(data, result, BUFFER_SIZE));
+    TIME_FUNC("table rounding",    0, f32_to_f16_buffer_table_round(data, result, BUFFER_SIZE));
+    TIME_FUNC("no table",          0, f32_to_f16_buffer_no_table(data, result, BUFFER_SIZE));
+    TIME_FUNC("imath half",        0, f32_to_f16_buffer_imath(data, result, BUFFER_SIZE));
 
     free(data);
     free(result);

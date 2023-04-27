@@ -13,6 +13,7 @@ $CC -O3 -DUSE_ARM -c hardware/hardware.c
 $CC -O3 -c table/table.c
 $CC -O3 -c table_round/table_round.c
 $CC -O3 -c no_table/no_table.c
+$CC -O3 -c cpython/cpython.c
 $CC -O3 -c numpy/numpy.c
 $CC -O3 -c imath/imath.c
 $CC -O3 -c tursa/tursa.c
@@ -39,6 +40,7 @@ $CC -O3 -DUSE_ARM -mfpu=neon-fp-armv8 -mfloat-abi=hard -mfp16-format=ieee -c har
 $CC -O3 -c table/table.c
 $CC -O3 -c table_round/table_round.c
 $CC -O3 -c no_table/no_table.c
+$CC -O3 -c cpython/cpython.c
 $CC -O3 -c numpy/numpy.c
 $CC -O3 -c imath/imath.c
 $CC -O3 -c tursa/tursa.c

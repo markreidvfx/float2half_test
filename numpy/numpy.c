@@ -3,7 +3,7 @@
 // https://www.corsix.org/content/converting-fp32-to-fp16
 // https://github.com/numpy/numpy/blob/13a5c4e569269aa4da6784e2ba83107b53f73bc9/numpy/core/src/npymath/halffloat.c#L244-L365
 
-uint16_t numpy_floatbits_to_halfbits(uint32_t f) {
+static inline uint16_t numpy_floatbits_to_halfbits(uint32_t f) {
   uint16_t h_sgn = (uint16_t)((f & 0x80000000u) >> 16);
   uint32_t f_exp = f & 0x7f800000u;
   uint32_t f_sig = f & 0x007fffffu;

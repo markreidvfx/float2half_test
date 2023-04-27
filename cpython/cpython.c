@@ -6,7 +6,7 @@
 // https://www.corsix.org/content/converting-fp32-to-fp16
 // https://github.com/python/cpython/blob/5f7d68e48de19c5c3a241d7126fc2af227c2f74a/Objects/floatobject.c#L2071-L2173
 
-int PyFloat_Pack2(double x) {
+static inline int PyFloat_Pack2(double x) {
   uint16_t sign, bits;
   int e;
 

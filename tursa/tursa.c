@@ -3,7 +3,7 @@
 // https://www.corsix.org/content/converting-fp32-to-fp16
 // https://github.com/nomovok-opensource/wrath/blob/3a8d8ee92f845ed96e95b3736a2a9deef4ac5e4c/src/3rd_party/ieeehalfprecision/ieeehalfprecision.c#L118-L156
 
-uint16_t tursa_floatbits_to_halfbits(uint32_t x) {
+static inline uint16_t tursa_floatbits_to_halfbits(uint32_t x) {
   uint32_t xs = x & 0x80000000u; // Pick off sign bit
   uint32_t xe = x & 0x7f800000u; // Pick off exponent bits
   uint32_t xm = x & 0x007fffffu; // Pick off mantissa bits

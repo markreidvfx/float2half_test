@@ -96,61 +96,132 @@ static void print_cpu_name()
 #endif
 }
 
-#define PRINT_ERROR_RESULT(name, count) \
-    printf("%-20s : %f%% err\n", name,   100.0 * count/(double)UINT32_MAX)
+typedef struct F16Test {
+    const char *name;
+    uint16_t (*f32_to_f16)(float v);
+    void (*f32_to_f16_buffer)(uint32_t *data, uint16_t *result, int data_size);
+} F16Test;
+
+const static F16Test f16_tests[] =
+{
+    {"hardware",         f32_to_f16_hw,          f32_to_f16_buffer_hw },
+    {"table no rounding",f32_to_f16_table,       f32_to_f16_buffer_table },
+    {"table rounding",   f32_to_f16_table_round, f32_to_f16_buffer_table_round },
+    {"no table",         f32_to_f16_no_table,    f32_to_f16_buffer_no_table },
+    {"imath half",       f32_to_f16_imath,       f32_to_f16_buffer_imath },
+    {"cpython",          f32_to_f16_cpython,     f32_to_f16_buffer_cpython },
+    {"numpy",            f32_to_f16_numpy,       f32_to_f16_buffer_numpy },
+    {"tursa",            f32_to_f16_tursa,       f32_to_f16_buffer_tursa },
+    {"ryg",              f32_to_f16_ryg,         f32_to_f16_buffer_ryg },
+    {"maratyszcza",      f32_to_f16_maratyszcza, f32_to_f16_buffer_maratyszcza }
+};
+
+#define ARRAY_SIZE(a) (sizeof(a)/sizeof((a)[0]))
+#define TEST_COUNT ARRAY_SIZE(f16_tests)
+
+#define PRINT_ERROR_RESULT(name, count, total) \
+    printf("%-20s : %g%% \n", name,  100.0 - (100.0 * count/(double)total))
 
 void test_hardware_accuracy()
 {
     int_float value;
-    uint16_t r0, r1;
 
-    uint32_t errors[9] = {0};
+    uint32_t full_error[TEST_COUNT] = {0};
+    uint32_t half_error[TEST_COUNT] = {0};
+    uint32_t nan_exact_error[TEST_COUNT] = {0};
+    uint32_t nan_error[TEST_COUNT] = {0};
 
-    for (uint64_t i =0; i <= UINT32_MAX; i++) {
-        // test every possible float value
+    uint32_t inf_error[TEST_COUNT] = {0};
+
+    uint32_t nan_total = 0;
+    uint32_t inf_total = 0;
+    uint32_t half_total = 0;
+
+    // test every possible float32 value
+    for (uint64_t i = 0; i <= UINT32_MAX; i++) {
         value.i = (uint32_t)i;
-        r0 = f32_to_f16_hw(value.f);
 
-        r1 = f32_to_f16_table(value.f);
-        errors[0] += (r0 != r1);
+        uint16_t r0 = f32_to_f16_hw(value.f);
 
-        r1 = f32_to_f16_table_round(value.f);
-        errors[1] += (r0 != r1);
+        for (int j = 1; j < TEST_COUNT; j++) {
+            uint16_t r1 = f16_tests[j].f32_to_f16(value.f);
 
-        r1 = f32_to_f16_no_table(value.f);
-        errors[2] += (r0 != r1);
+            // check if value exactly matches hardware
+            int e = (r0 != r1);
+            full_error[j] += e;
 
-        r1 = f32_to_f16_imath(value.f);
-        errors[3] += (r0 != r1);
+            if (isnan(value.f)) {
+                // float v = f16_to_f32_hw(r0);
+                // assert(isnan(v));
+                if (j == 1)
+                    nan_total++;
 
-        r1 = f32_to_f16_cpython(value.f);
-        errors[4] += (r0 != r1);
+                nan_exact_error[j] += e;
 
-        r1 = f32_to_f16_numpy(value.f);
-        errors[5] += (r0 != r1);
+                // check if the converted value is a NaN
+                // even if it doesn't match hardware exactly
 
-        r1 = f32_to_f16_tursa(value.f);
-        errors[6] += (r0 != r1);
+                // float t = f16_to_f32_hw(r1);
+                // int is_a_nan = ((r1 & 0x7FFF) > 0x7C00);
+                // assert(is_a_nan == isnan(t));
 
-        r1 = f32_to_f16_ryg(value.f);
-        errors[7] += (r0 != r1);
+                nan_error[j] += !((r1 & 0x7FFF) > 0x7C00);
 
-        r1 = f32_to_f16_maratyszcza(value.f);
-        errors[8] += (r0 != r1);
+            } else if ((value.i & 0x7FFFFFFF) > 0x477fefff) {
+                // value should be +inf/-inf
+
+                // float v = f16_to_f32_hw(r0);
+                // assert(isinf(v));
+
+                if (j == 1)
+                    inf_total++;
+
+                inf_error[j] += e;
+
+            } else {
+                // value can be mapped to a f16 normal number or denormal
+
+                // float v = f16_to_f32_hw(r0);
+                // assert(!(isinf(v) || isnan(v)));
+
+                if (j == 1)
+                    half_total++;
+
+                half_error[j] += e;
+
+            }
+        }
+
+        if ((i % 0x10000000 ) == 0){
+            printf("\r %4.1f%%", 100.0 * i/(double)UINT32_MAX);
+        }
     }
 
-    PRINT_ERROR_RESULT("table no rounding", errors[0]);
-    PRINT_ERROR_RESULT("table rounding",    errors[1]);
-    PRINT_ERROR_RESULT("no table",          errors[2]);
-    PRINT_ERROR_RESULT("imath half",        errors[3]);
-    PRINT_ERROR_RESULT("cpython",           errors[4]);
-    PRINT_ERROR_RESULT("numpy",             errors[5]);
-    PRINT_ERROR_RESULT("tursa",             errors[6]);
-    PRINT_ERROR_RESULT("ryg",               errors[7]);
-    PRINT_ERROR_RESULT("maratyszcza",       errors[8]);
+    printf("\rnormal/denormal value matches hardware, out of %u:\n", half_total);
+    for (int i = 1; i < TEST_COUNT; i++) {
+        PRINT_ERROR_RESULT(f16_tests[i].name, half_error[i], half_total);
+    }
 
+    printf("\nnan value exactly matches hardware, out of %u:\n", nan_total);
+    for (int i = 1; i < TEST_COUNT; i++) {
+        PRINT_ERROR_RESULT(f16_tests[i].name, nan_exact_error[i], nan_total);
+    }
+
+    printf("\nnan is a nan value but might not match hardware, out of %u:\n", nan_total);
+    for (int i = 1; i < TEST_COUNT; i++) {
+        PRINT_ERROR_RESULT(f16_tests[i].name, nan_error[i], nan_total);
+    }
+
+    printf("\n+/-inf value matches hardware, out of %u:\n", inf_total);
+    for (int i = 1; i < TEST_COUNT; i++) {
+        PRINT_ERROR_RESULT(f16_tests[i].name, inf_error[i], inf_total);
+    }
+
+    printf("\ntotal exact hardware match:\n");
+    for (int i = 1; i < TEST_COUNT; i++) {
+        PRINT_ERROR_RESULT(f16_tests[i].name, full_error[i], UINT32_MAX);
+    }
 }
-
 
 uint32_t rand_uint32(void)
 {
@@ -162,9 +233,13 @@ int rand_uint32_real()
     int_float v;
     for (;;) {
         v.i = rand_uint32();
-        // if ((v.i &= 0x7FFFFFFF) <= 0x477fe000)
-        if (!isnan(v.f) && !isinf(v.f) && fabsf(v.f) <= 65504.0f)
+
+        if ((v.i &= 0x7FFFFFFF) <= 0x477fefff) {
+            // uint16_t r0 = f32_to_f16_hw(v.f);
+            // float f = f16_to_f32_hw(r0);
+            // assert(!(isnan(f) || isinf(f)));
             return v.i;
+        }
     }
 }
 
@@ -178,7 +253,11 @@ void randomize_buffer(uint32_t *data, size_t size, int real_only)
             data[i] = rand_uint32();
 
         // printf("0x%08x\n", data[i]);
+        if ((i % 10000000) == 0){
+            printf("\rrandomizing buffers: %4.1f%%", 100.0 * i/(double)size);
+        }
     }
+    printf("\r");
 }
 
 #define TIME_FUNC(name, func, buffer_size, runs)                          \
@@ -186,7 +265,7 @@ void randomize_buffer(uint32_t *data, size_t size, int real_only)
     max_value = -INFINITY;                                                \
     average = 0.0;                                                        \
     ptr = data;                                                           \
-    for (int i = 0; i < runs; i++) {                                      \
+    for (int j = 0; j < runs; j++) {                                      \
         start = get_timer();                                              \
         func(ptr, result, buffer_size);                                   \
         elapse = (double)((get_timer() - start)) / (double)freq;          \
@@ -197,7 +276,6 @@ void randomize_buffer(uint32_t *data, size_t size, int real_only)
     }                                                                     \
                                                                           \
     printf("%-20s : %f %f %f secs\n", name, min_value, average, max_value)
-
 
 int main(int argc, char *argv[])
 {
@@ -217,6 +295,7 @@ int main(int argc, char *argv[])
 #define TEST_RUNS 50
 #define BUFFER_SIZE (1920*1080*4)
 
+#if 1
     // init_test_data
     uint32_t *data = (uint32_t*) malloc(sizeof(uint32_t) * BUFFER_SIZE * TEST_RUNS);
     uint16_t *result = (uint16_t*) malloc(sizeof(uint16_t) * BUFFER_SIZE * TEST_RUNS);
@@ -228,50 +307,34 @@ int main(int argc, char *argv[])
 
     print_cpu_name();
 
-#if 1
     srand(time(NULL));
-    printf("\nruns: %d, buffer size: %d, random f32 <= HALF_MAX\n", TEST_RUNS, BUFFER_SIZE);
+    printf("\r\nruns: %d, buffer size: %d, random f32 <= HALF_MAX\n\n", TEST_RUNS, BUFFER_SIZE);
     randomize_buffer(data, BUFFER_SIZE * TEST_RUNS, 1);
 
-    printf("%-20s :      min      avg     max\n", " ");
-    TIME_FUNC("hardware",          f32_to_f16_buffer_hw,          BUFFER_SIZE, TEST_RUNS);
-    TIME_FUNC("table no rounding", f32_to_f16_buffer_table,       BUFFER_SIZE, TEST_RUNS);
-    TIME_FUNC("table rounding",    f32_to_f16_buffer_table_round, BUFFER_SIZE, TEST_RUNS);
-    TIME_FUNC("no table",          f32_to_f16_buffer_no_table,    BUFFER_SIZE, TEST_RUNS);
-    TIME_FUNC("imath half",        f32_to_f16_buffer_imath,       BUFFER_SIZE, TEST_RUNS);
-    TIME_FUNC("cpython",           f32_to_f16_buffer_cpython,     BUFFER_SIZE, TEST_RUNS);
-    TIME_FUNC("numpy",             f32_to_f16_buffer_numpy,       BUFFER_SIZE, TEST_RUNS);
-    TIME_FUNC("tursa",             f32_to_f16_buffer_tursa,       BUFFER_SIZE, TEST_RUNS);
-    TIME_FUNC("ryg",               f32_to_f16_buffer_ryg,         BUFFER_SIZE, TEST_RUNS);
-    TIME_FUNC("maratyszcza",       f32_to_f16_buffer_maratyszcza, BUFFER_SIZE, TEST_RUNS);
+    printf("%-20s :      min      avg     max\n", "name");
+    for (int i = 0; i < TEST_COUNT; i++) {
+        TIME_FUNC(f16_tests[i].name, f16_tests[i].f32_to_f16_buffer, BUFFER_SIZE, TEST_RUNS);
+    }
 
     fflush(stdout);
 
     srand(time(NULL));
-    printf("\nruns: %d, buffer size: %d, random f32 full +inf+nan\n", TEST_RUNS, BUFFER_SIZE);
+    printf("\r\nruns: %d, buffer size: %d, random f32 full +inf+nan\n\n", TEST_RUNS, BUFFER_SIZE);
     randomize_buffer(data, BUFFER_SIZE * TEST_RUNS, 0);
 
-    printf("%-20s :      min      avg     max\n", " ");
-    TIME_FUNC("hardware",          f32_to_f16_buffer_hw,          BUFFER_SIZE, TEST_RUNS);
-    TIME_FUNC("table no rounding", f32_to_f16_buffer_table,       BUFFER_SIZE, TEST_RUNS);
-    TIME_FUNC("table rounding",    f32_to_f16_buffer_table_round, BUFFER_SIZE, TEST_RUNS);
-    TIME_FUNC("no table",          f32_to_f16_buffer_no_table,    BUFFER_SIZE, TEST_RUNS);
-    TIME_FUNC("imath half",        f32_to_f16_buffer_imath,       BUFFER_SIZE, TEST_RUNS);
-    TIME_FUNC("cpython",           f32_to_f16_buffer_cpython,     BUFFER_SIZE, TEST_RUNS);
-    TIME_FUNC("numpy",             f32_to_f16_buffer_numpy,       BUFFER_SIZE, TEST_RUNS);
-    TIME_FUNC("tursa",             f32_to_f16_buffer_tursa,       BUFFER_SIZE, TEST_RUNS);
-    TIME_FUNC("ryg",               f32_to_f16_buffer_ryg,         BUFFER_SIZE, TEST_RUNS);
-    TIME_FUNC("maratyszcza",       f32_to_f16_buffer_maratyszcza, BUFFER_SIZE, TEST_RUNS);
+    printf("%-20s :      min      avg     max\n", "name");
+    for (int i = 0; i < TEST_COUNT; i++) {
+        TIME_FUNC(f16_tests[i].name, f16_tests[i].f32_to_f16_buffer, BUFFER_SIZE, TEST_RUNS);
+    }
 
-#endif
-
+    fflush(stdout);
     free(data);
     free(result);
-    fflush(stdout);
-
-#if 1
-    printf("\nchecking accuracy\n");
-    test_hardware_accuracy();
 #endif
 
+
+#if 1
+    printf("\nchecking accuracy against hardware\n\n");
+    test_hardware_accuracy();
+#endif
 }

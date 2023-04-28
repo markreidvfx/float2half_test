@@ -1,6 +1,11 @@
 
 #include "hardware.h"
 
+typedef union {
+        uint32_t i;
+        float    f;
+} int_float;
+
 #ifdef USE_ARM
 static inline uint16_t to_f16(float v)
 {
@@ -63,15 +68,14 @@ uint16_t f32_to_f16_hw(float f)
 
 float f16_to_f32_hw(uint16_t f)
 {
-    return to_f32(f);
+    int_float value;
+    value.i = to_f32(f);
+    return value.f;
 }
 
 void f32_to_f16_buffer_hw(uint32_t *data, uint16_t *result, int data_size)
 {
-    union {
-        uint32_t i;
-        float    f;
-    } value;
+    int_float value;
 
     for (int i =0; i < data_size; i++) {
         value.i = data[i];

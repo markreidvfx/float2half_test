@@ -82,8 +82,8 @@ int main(int argc, char *argv[])
 
     ff_init_half2float_tables(&h2f_table);
 
-    for (int i = 0; i < UINT16_MAX; i++) {
-        a.i = f16_to_f32_hw(i);
+    for (int i = 0; i <= UINT16_MAX; i++) {
+        a.f = f16_to_f32_hw(i);
         b.i = table_half2float(i, &h2f_table);
 
         if (a.i != b.i) {

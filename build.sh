@@ -1,11 +1,11 @@
 #!/bin/bash
 set -e
 machinestr=$(uname -m)
-echo $machinestr
 
 CC=gcc
 
-
+uname -a
+$CC --version
 
 if [ "$machinestr" = 'aarch64' ]; then
 # arm raspberry pi 64

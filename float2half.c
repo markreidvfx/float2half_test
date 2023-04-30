@@ -19,6 +19,7 @@
 #include "tursa/tursa.h"
 #include "ryg/ryg.h"
 #include "maratyszcza/maratyszcza.h"
+#include "maratyszcza_nanfix/maratyszcza_nanfix.h"
 
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
@@ -104,16 +105,17 @@ typedef struct F16Test {
 
 const static F16Test f16_tests[] =
 {
-    {"hardware",         f32_to_f16_hw,          f32_to_f16_buffer_hw },
-    {"table no rounding",f32_to_f16_table,       f32_to_f16_buffer_table },
-    {"table rounding",   f32_to_f16_table_round, f32_to_f16_buffer_table_round },
-    {"no table",         f32_to_f16_no_table,    f32_to_f16_buffer_no_table },
-    {"imath half",       f32_to_f16_imath,       f32_to_f16_buffer_imath },
-    {"cpython",          f32_to_f16_cpython,     f32_to_f16_buffer_cpython },
-    {"numpy",            f32_to_f16_numpy,       f32_to_f16_buffer_numpy },
-    {"tursa",            f32_to_f16_tursa,       f32_to_f16_buffer_tursa },
-    {"ryg",              f32_to_f16_ryg,         f32_to_f16_buffer_ryg },
-    {"maratyszcza",      f32_to_f16_maratyszcza, f32_to_f16_buffer_maratyszcza }
+    {"hardware",            f32_to_f16_hw,                 f32_to_f16_buffer_hw },
+    {"table no rounding",   f32_to_f16_table,              f32_to_f16_buffer_table },
+    {"table rounding",      f32_to_f16_table_round,        f32_to_f16_buffer_table_round },
+    {"no table",            f32_to_f16_no_table,           f32_to_f16_buffer_no_table },
+    {"imath half",          f32_to_f16_imath,              f32_to_f16_buffer_imath },
+    {"cpython",             f32_to_f16_cpython,            f32_to_f16_buffer_cpython },
+    {"numpy",               f32_to_f16_numpy,              f32_to_f16_buffer_numpy },
+    {"tursa",               f32_to_f16_tursa,              f32_to_f16_buffer_tursa },
+    {"ryg",                 f32_to_f16_ryg,                f32_to_f16_buffer_ryg },
+    {"maratyszcza",         f32_to_f16_maratyszcza,        f32_to_f16_buffer_maratyszcza },
+    {"maratyszcza nan fix", f32_to_f16_maratyszcza_nanfix, f32_to_f16_buffer_maratyszcza_nanfix }
 };
 
 #define ARRAY_SIZE(a) (sizeof(a)/sizeof((a)[0]))
@@ -194,6 +196,7 @@ void test_hardware_accuracy()
 
         if ((i % 0x10000000 ) == 0){
             printf("\r %4.1f%%", 100.0 * i/(double)UINT32_MAX);
+            fflush(stdout);
         }
     }
 
@@ -253,8 +256,9 @@ void randomize_buffer(uint32_t *data, size_t size, int real_only)
             data[i] = rand_uint32();
 
         // printf("0x%08x\n", data[i]);
-        if ((i % 10000000) == 0){
+        if ((i % 20000000) == 0){
             printf("\rrandomizing buffers: %4.1f%%", 100.0 * i/(double)size);
+            fflush(stdout);
         }
     }
     printf("\r");

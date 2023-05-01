@@ -26,6 +26,7 @@
 
 #if defined(__x86_64__) || defined(_M_X64) || defined(i386) || defined(_M_IX86)
 #define ARCH_X86
+#include "maratyszcza_sse2/maratyszcza_sse2.h"
 #endif
 
 typedef union {
@@ -115,7 +116,10 @@ const static F16Test f16_tests[] =
     {"tursa",               f32_to_f16_tursa,              f32_to_f16_buffer_tursa },
     {"ryg",                 f32_to_f16_ryg,                f32_to_f16_buffer_ryg },
     {"maratyszcza",         f32_to_f16_maratyszcza,        f32_to_f16_buffer_maratyszcza },
-    {"maratyszcza nan fix", f32_to_f16_maratyszcza_nanfix, f32_to_f16_buffer_maratyszcza_nanfix }
+    {"maratyszcza nan fix", f32_to_f16_maratyszcza_nanfix, f32_to_f16_buffer_maratyszcza_nanfix },
+#if defined(ARCH_X86)
+    {"maratyszcza sse2",    f32_to_f16_maratyszcza_sse2,   f32_to_f16_buffer_maratyszcza_sse2 }
+#endif
 };
 
 #define ARRAY_SIZE(a) (sizeof(a)/sizeof((a)[0]))

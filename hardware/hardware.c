@@ -73,6 +73,7 @@ float f16_to_f32_hw(uint16_t f)
     return value.f;
 }
 
+#if defined(USE_ARM)
 void f32_to_f16_buffer_hw(uint32_t *data, uint16_t *result, int data_size)
 {
     int_float value;
@@ -82,3 +83,55 @@ void f32_to_f16_buffer_hw(uint32_t *data, uint16_t *result, int data_size)
         result[i] = to_f16(value.f);
     }
 }
+
+#else
+void f32_to_f16_buffer_hw(uint32_t *data, uint16_t *result, int data_size)
+{
+    int size = data_size / 4 * 4;
+    int remainder = data_size - size;
+
+    uint32_t *base_src = data;
+    uint16_t *base_dst = result;
+
+    for (int i = 0; i < size; i+=4) {
+        __m128 ps = _mm_loadu_ps((float*)data);
+        __m128i ph = _mm_cvtps_ph(ps, _MM_FROUND_TO_NEAREST_INT);
+        _mm_storeu_si64((__m128i*)result, ph);
+
+        data += 4;
+        result += 4;
+    }
+
+    if (remainder) {
+        uint32_t in_buf[4] = {0};
+        uint16_t out_buf[4] = {0};
+        for (int i = 0; i < remainder; i++) {
+            in_buf[i] = data[i];
+        }
+
+        __m128 ps = _mm_loadu_ps((float*)&in_buf[0]);
+        __m128i ph = _mm_cvtps_ph(ps, _MM_FROUND_TO_NEAREST_INT);
+         _mm_storeu_si64((__m128i*)out_buf, ph);
+
+        for (int i = 0; i < remainder; i++) {
+            result[i] = out_buf[i];
+        }
+    }
+
+# if 0
+    // verify against single
+    for (int i = 0; i < data_size; i++) {
+        union { uint32_t u; float f; } f;
+        f.u = base_src[i];
+
+        uint16_t r = to_f16(f.f);
+        uint16_t t = base_dst[i];
+
+        if (r != t) {
+            printf("cvt:  %d 0x%08x 0x%04x != 0x%04x\n", i, f.u, r, t);
+            assert(r == t);
+        }
+    }
+#endif
+}
+#endif

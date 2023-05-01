@@ -68,10 +68,14 @@ $CC -O3 -mtune=generic -c tursa/tursa.c
 $CC -O3 -mtune=generic -c ryg/ryg.c
 $CC -O3 -mtune=generic -c maratyszcza/maratyszcza.c
 $CC -O3 -mtune=generic -c maratyszcza_nanfix/maratyszcza_nanfix.c
+$CC -O3 -mtune=generic -msse2 -mno-sse3 -mno-sse4 -mno-sse4.2 -mno-avx -mno-avx2 -c maratyszcza_sse2/maratyszcza_sse2.c
+
+#debug sse2
+# $CC -O3 -mtune=generic -msse2 -mf16c  -c maratyszcza_sse2/maratyszcza_sse2.c
 
 
-$CC -O3 float2half.c hardware.o table.o table_round.o no_table.o imath.o cpython.o numpy.o tursa.o ryg.o maratyszcza.o maratyszcza_nanfix.o -o float2half
-$CC -O3 half2float.c hardware.o table.o table_round.o no_table.o imath.o cpython.o numpy.o tursa.o ryg.o maratyszcza.o maratyszcza_nanfix.o -o half2float
+$CC -O3 float2half.c hardware.o table.o table_round.o no_table.o imath.o cpython.o numpy.o tursa.o ryg.o maratyszcza.o maratyszcza_nanfix.o maratyszcza_sse2.o -o float2half
+$CC -O3 half2float.c hardware.o table.o table_round.o no_table.o imath.o cpython.o numpy.o tursa.o ryg.o maratyszcza.o maratyszcza_nanfix.o maratyszcza_sse2.o -o half2float
 
 ./float2half
 ./half2float

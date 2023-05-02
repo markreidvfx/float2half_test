@@ -99,7 +99,7 @@ void f32_to_f16_buffer_maratyszcza_sse2(uint32_t *data, uint16_t *result, int da
     for (int i = 0; i < size; i+=4) {
         __m128 ps = _mm_loadu_ps((float*)data);
         __m128i ph = cvtps_ph_sse2(ps, _MM_FROUND_TO_NEAREST_INT);
-        _mm_storeu_si64((__m128i*)result, ph);
+        _mm_storel_epi64((__m128i*)result, ph);
 
         data += 4;
         result += 4;
@@ -114,7 +114,7 @@ void f32_to_f16_buffer_maratyszcza_sse2(uint32_t *data, uint16_t *result, int da
 
         __m128 ps = _mm_loadu_ps((float*)&in_buf[0]);
         __m128i ph = cvtps_ph_sse2(ps, _MM_FROUND_TO_NEAREST_INT);
-         _mm_storeu_si64((__m128i*)&out_buf[0], ph);
+         _mm_storel_epi64((__m128i*)&out_buf[0], ph);
 
         for (int i = 0; i < remainder; i++) {
             result[i] = out_buf[i];

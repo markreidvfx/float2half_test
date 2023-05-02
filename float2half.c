@@ -27,6 +27,7 @@
 #if defined(__x86_64__) || defined(_M_X64) || defined(i386) || defined(_M_IX86)
 #define ARCH_X86
 #include "maratyszcza_sse2/maratyszcza_sse2.h"
+#include "x86_cpu_info.h"
 #endif
 
 typedef union {
@@ -54,10 +55,6 @@ static uint64_t get_timer(void)
 #else
 #include <time.h>
 #include <unistd.h>
-#ifdef ARCH_X86
-#include <cpuid.h>
-#endif
-
 static uint64_t get_timer_frequency()
 {
     uint64_t Result = 1000000000ull;
@@ -71,32 +68,6 @@ static uint64_t get_timer(void)
     return Result;
 }
 #endif
-
-#if _MSC_VER
-#define NOINLINE __declspec(noinline)
-#else
-#define NOINLINE __attribute__ ((noinline))
-#endif
-
-static void print_cpu_name()
-{
-#if defined(ARCH_X86)
-    char CPU[65] = {0};
-    for(int i = 0; i < 3; ++i)
-    {
-#if _WIN32
-        __cpuid((int *)(CPU + 16*i), 0x80000002 + i);
-#else
-        __get_cpuid(0x80000002 + i,
-                    (int unsigned *)(CPU + 16*i),
-                    (int unsigned *)(CPU + 16*i + 4),
-                    (int unsigned *)(CPU + 16*i + 8),
-                    (int unsigned *)(CPU + 16*i + 12));
-#endif
-    }
-    printf("CPU: %s\n", CPU);
-#endif
-}
 
 typedef struct F16Test {
     const char *name;
@@ -296,6 +267,20 @@ int main(int argc, char *argv[])
     double min_value;
     double max_value;
     uint32_t *ptr;
+    int has_hardware_f16 = 1;
+    int first = 0;
+
+#if defined(ARCH_X86)
+    // print cpu name and check for f16c instruction
+    CPUInfo info = {0};
+    get_cpu_info(&info);
+    printf("CPU: %s %s\n", info.name, info.extensions);
+    has_hardware_f16 = info.flags & X86_CPU_FLAG_F16C;
+    if (!has_hardware_f16) {
+        printf("** CPU does not support f16c instruction, skipping some tests **\n");
+        first = 1;
+    }
+#endif
 
     init_table();
     init_table_round();
@@ -313,14 +298,12 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    print_cpu_name();
-
     srand(time(NULL));
     printf("\r\nruns: %d, buffer size: %d, random f32 <= HALF_MAX\n\n", TEST_RUNS, BUFFER_SIZE);
     randomize_buffer(data, BUFFER_SIZE * TEST_RUNS, 1);
 
     printf("%-20s :      min      avg     max\n", "name");
-    for (int i = 0; i < TEST_COUNT; i++) {
+    for (int i = first; i < TEST_COUNT; i++) {
         TIME_FUNC(f16_tests[i].name, f16_tests[i].f32_to_f16_buffer, BUFFER_SIZE, TEST_RUNS);
     }
 
@@ -331,7 +314,7 @@ int main(int argc, char *argv[])
     randomize_buffer(data, BUFFER_SIZE * TEST_RUNS, 0);
 
     printf("%-20s :      min      avg     max\n", "name");
-    for (int i = 0; i < TEST_COUNT; i++) {
+    for (int i = first; i < TEST_COUNT; i++) {
         TIME_FUNC(f16_tests[i].name, f16_tests[i].f32_to_f16_buffer, BUFFER_SIZE, TEST_RUNS);
     }
 
@@ -342,7 +325,11 @@ int main(int argc, char *argv[])
 
 
 #if 1
-    printf("\nchecking accuracy against hardware\n\n");
-    test_hardware_accuracy();
+    if (has_hardware_f16) {
+        printf("\nchecking accuracy against hardware\n\n");
+        test_hardware_accuracy();
+    } else {
+        printf("\nskipping hardware accuracy test\n");
+    }
 #endif
 }

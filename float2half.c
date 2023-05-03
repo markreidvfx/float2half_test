@@ -327,7 +327,11 @@ int main(int argc, char *argv[])
 #if 1
     if (has_hardware_f16) {
         printf("\nchecking accuracy against hardware\n\n");
+        start = get_timer();
         test_hardware_accuracy();
+        elapse = (double)((get_timer() - start)) / (double)freq;
+        printf("\nhardware check in %f secs\n",  elapse);
+
     } else {
         printf("\nskipping hardware accuracy test\n");
     }

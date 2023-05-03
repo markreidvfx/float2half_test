@@ -9,6 +9,8 @@
 #include <inttypes.h>
 #include <assert.h>
 
+#include "platform_info.h"
+
 #include "hardware/hardware.h"
 #include "table/table.h"
 #include "table_round/table_round.h"
@@ -21,14 +23,15 @@
 #include "maratyszcza/maratyszcza.h"
 #include "maratyszcza_nanfix/maratyszcza_nanfix.h"
 
-#define MIN(a,b) (((a)<(b))?(a):(b))
-#define MAX(a,b) (((a)>(b))?(a):(b))
-
-#if defined(__x86_64__) || defined(_M_X64) || defined(i386) || defined(_M_IX86)
-#define ARCH_X86
+#if defined(ARCH_X86)
 #include "maratyszcza_sse2/maratyszcza_sse2.h"
 #include "x86_cpu_info.h"
 #endif
+
+#define MIN(a,b) (((a)<(b))?(a):(b))
+#define MAX(a,b) (((a)>(b))?(a):(b))
+
+static char PLATFORM_NAME_BUFFER[512];
 
 typedef union {
         uint32_t i;
@@ -52,9 +55,38 @@ static uint64_t get_timer(void)
     QueryPerformanceCounter(&Result);
     return Result.QuadPart;
 }
+
+typedef BOOL (WINAPI * RtlGetVersion_FUNC) (OSVERSIONINFOEXW *);
+
+static char * get_platform_name()
+{
+    HMODULE hMod;
+    RtlGetVersion_FUNC RtlGetVersion;
+    OSVERSIONINFOEXW osw;
+
+    sprintf(PLATFORM_NAME_BUFFER, "%s", PLATFORM_NAME);
+
+    hMod = LoadLibrary(TEXT("ntdll.dll"));
+    if (hMod) {
+        RtlGetVersion = (RtlGetVersion_FUNC)GetProcAddress(hMod, "RtlGetVersion");
+        if (RtlGetVersion) {
+            ZeroMemory(&osw, sizeof(osw));
+            osw.dwOSVersionInfoSize = sizeof(osw);
+            if (RtlGetVersion(&osw) == 0) {
+                sprintf(PLATFORM_NAME_BUFFER, "Windows %d.%d", osw.dwMajorVersion, osw.dwMinorVersion);
+            }
+        }
+        FreeLibrary(hMod);
+    }
+
+    return PLATFORM_NAME_BUFFER;
+}
+
 #else
 #include <time.h>
 #include <unistd.h>
+#include <sys/utsname.h>
+
 static uint64_t get_timer_frequency()
 {
     uint64_t Result = 1000000000ull;
@@ -66,6 +98,17 @@ static uint64_t get_timer(void)
     clock_gettime(CLOCK_MONOTONIC, &Spec);
     uint64_t Result = ((uint64_t)Spec.tv_sec * 1000000000ull) + (uint64_t)Spec.tv_nsec;
     return Result;
+}
+
+static char * get_platform_name()
+{
+    struct utsname info;
+    if (uname(&info) != 0) {
+        perror("Failed to get system information");
+        return PLATFORM_NAME;
+    }
+    sprintf(PLATFORM_NAME_BUFFER, "%s %s %s %s", info.sysname, info.release, info.version, info.machine);
+    return PLATFORM_NAME_BUFFER;
 }
 #endif
 
@@ -179,7 +222,7 @@ void test_hardware_accuracy(FILE *f)
 
     printf("\rnormal/denormal value matches hardware, out of %u:\n", half_total);
     if (f)
-        fprintf(f, "\nnormal/denormal value matches hardware\nname,error,total\n");
+        fprintf(f, "\nerror_test,normal/denormal value matches hardware\nname,error,total\n");
 
     for (int i = 1; i < TEST_COUNT; i++) {
         PRINT_ERROR_RESULT(f16_tests[i].name, half_error[i], half_total);
@@ -187,7 +230,7 @@ void test_hardware_accuracy(FILE *f)
 
     printf("\nnan value exactly matches hardware, out of %u:\n", nan_total);
     if (f)
-        fprintf(f, "\nnan value exactly matches hardware\nname,error,total\n");
+        fprintf(f, "\nerror_test,nan value exactly matches hardware\nname,error,total\n");
 
     for (int i = 1; i < TEST_COUNT; i++) {
         PRINT_ERROR_RESULT(f16_tests[i].name, nan_exact_error[i], nan_total);
@@ -195,7 +238,7 @@ void test_hardware_accuracy(FILE *f)
 
     printf("\nnan is a nan value but might not match hardware, out of %u:\n", nan_total);
     if (f)
-        fprintf(f, "\nnan is a nan value but might not match hardware\nname,error,total\n");
+        fprintf(f, "\nerror_test,nan is a nan value but might not match hardware\nname,error,total\n");
 
     for (int i = 1; i < TEST_COUNT; i++) {
         PRINT_ERROR_RESULT(f16_tests[i].name, nan_error[i], nan_total);
@@ -203,7 +246,7 @@ void test_hardware_accuracy(FILE *f)
 
     printf("\n+/-inf value matches hardware, out of %u:\n", inf_total);
     if (f)
-        fprintf(f, "\n+/-inf value matches hardware\nname,error,total\n");
+        fprintf(f, "\nerror_test,+/-inf value matches hardware\nname,error,total\n");
 
     for (int i = 1; i < TEST_COUNT; i++) {
         PRINT_ERROR_RESULT(f16_tests[i].name, inf_error[i], inf_total);
@@ -211,7 +254,7 @@ void test_hardware_accuracy(FILE *f)
 
     printf("\ntotal exact hardware match:\n");
     if (f)
-        fprintf(f, "\ntotal exact hardware match\nname,error,total\n");
+        fprintf(f, "\nerror_test,total exact hardware match\nname,error,total\n");
 
     for (int i = 1; i < TEST_COUNT; i++) {
         PRINT_ERROR_RESULT(f16_tests[i].name, full_error[i], UINT32_MAX);
@@ -296,18 +339,23 @@ int main(int argc, char *argv[])
     // print cpu name and check for f16c instruction
     CPUInfo info = {0};
     get_cpu_info(&info);
-    printf("CPU: %s %s\n", info.name, info.extensions);
+    printf("CPU: %s %s %s\n", CPU_ARCH, info.name, info.extensions);
     if (f)
-        fprintf(f, "%s,%s\n", info.name, info.extensions);
+        fprintf(f, "%s,%s,%s\n", CPU_ARCH, info.name, info.extensions);
     has_hardware_f16 = info.flags & X86_CPU_FLAG_F16C;
     if (!has_hardware_f16) {
         printf("** CPU does not support f16c instruction, skipping some tests **\n");
         first = 1;
     }
 #else
+    printf("CPU: %s\n", CPU_ARCH);
     if (f)
-        fprintf(f, "\n" );
+        fprintf(f, "%s\n", CPU_ARCH);
 #endif
+
+    printf("%s %s\n", get_platform_name(), COMPILER_NAME);
+    if (f)
+        fprintf(f, "%s,%s\n", get_platform_name(), COMPILER_NAME);
 
     init_table();
     init_table_round();
@@ -330,7 +378,7 @@ int main(int argc, char *argv[])
     randomize_buffer(data, BUFFER_SIZE * TEST_RUNS, 1);
 
     if (f)
-        fprintf(f, "\n%s\n%s,%s,%s,%s\n", "random f32 <= HALF_MAX", "name", "min", "avg", "max");
+        fprintf(f, "\nperf_test,%s\n%s,%s,%s,%s\n", "random f32 <= HALF_MAX", "name", "min", "avg", "max");
 
 
     printf("%-20s :      min      avg     max\n", "name");
@@ -345,7 +393,7 @@ int main(int argc, char *argv[])
     randomize_buffer(data, BUFFER_SIZE * TEST_RUNS, 0);
 
     if (f)
-        fprintf(f, "\n%s\n%s,%s,%s,%s\n", "random f32 full +inf+nan", "name", "min", "avg", "max");
+        fprintf(f, "\nperf_test,%s\n%s,%s,%s,%s\n", "random f32 full +inf+nan", "name", "min", "avg", "max");
 
     printf("%-20s :      min      avg     max\n", "name");
     for (int i = first; i < TEST_COUNT; i++) {

@@ -97,9 +97,11 @@ const static F16Test f16_tests[] =
 #define TEST_COUNT ARRAY_SIZE(f16_tests)
 
 #define PRINT_ERROR_RESULT(name, count, total) \
-    printf("%-20s : %g%% \n", name,  100.0 - (100.0 * count/(double)total))
+    printf("%-20s : %g%% \n", name,  100.0 - (100.0 * count/(double)total)); \
+    if (f)                                                                   \
+        fprintf(f, "%s,%f,%f\n", name, (double)count, (double)total)
 
-void test_hardware_accuracy()
+void test_hardware_accuracy(FILE *f)
 {
     int_float value;
 
@@ -176,26 +178,41 @@ void test_hardware_accuracy()
     }
 
     printf("\rnormal/denormal value matches hardware, out of %u:\n", half_total);
+    if (f)
+        fprintf(f, "\nnormal/denormal value matches hardware\nname,error,total\n");
+
     for (int i = 1; i < TEST_COUNT; i++) {
         PRINT_ERROR_RESULT(f16_tests[i].name, half_error[i], half_total);
     }
 
     printf("\nnan value exactly matches hardware, out of %u:\n", nan_total);
+    if (f)
+        fprintf(f, "\nnan value exactly matches hardware\nname,error,total\n");
+
     for (int i = 1; i < TEST_COUNT; i++) {
         PRINT_ERROR_RESULT(f16_tests[i].name, nan_exact_error[i], nan_total);
     }
 
     printf("\nnan is a nan value but might not match hardware, out of %u:\n", nan_total);
+    if (f)
+        fprintf(f, "\nnan is a nan value but might not match hardware\nname,error,total\n");
+
     for (int i = 1; i < TEST_COUNT; i++) {
         PRINT_ERROR_RESULT(f16_tests[i].name, nan_error[i], nan_total);
     }
 
     printf("\n+/-inf value matches hardware, out of %u:\n", inf_total);
+    if (f)
+        fprintf(f, "\n+/-inf value matches hardware\nname,error,total\n");
+
     for (int i = 1; i < TEST_COUNT; i++) {
         PRINT_ERROR_RESULT(f16_tests[i].name, inf_error[i], inf_total);
     }
 
     printf("\ntotal exact hardware match:\n");
+    if (f)
+        fprintf(f, "\ntotal exact hardware match\nname,error,total\n");
+
     for (int i = 1; i < TEST_COUNT; i++) {
         PRINT_ERROR_RESULT(f16_tests[i].name, full_error[i], UINT32_MAX);
     }
@@ -239,22 +256,24 @@ void randomize_buffer(uint32_t *data, size_t size, int real_only)
     printf("\r");
 }
 
-#define TIME_FUNC(name, func, buffer_size, runs)                          \
-    min_value = INFINITY;                                                 \
-    max_value = -INFINITY;                                                \
-    average = 0.0;                                                        \
-    ptr = data;                                                           \
-    for (int j = 0; j < runs; j++) {                                      \
-        start = get_timer();                                              \
-        func(ptr, result, buffer_size);                                   \
-        elapse = (double)((get_timer() - start)) / (double)freq;          \
-        min_value = MIN(min_value, elapse);                               \
-        max_value = MAX(max_value, elapse);                               \
-        average += elapse * 1.0 / (double)runs;                           \
-        ptr += buffer_size;                                               \
-    }                                                                     \
-                                                                          \
-    printf("%-20s : %f %f %f secs\n", name, min_value, average, max_value)
+#define TIME_FUNC(name, func, buffer_size, runs)                            \
+    min_value = INFINITY;                                                   \
+    max_value = -INFINITY;                                                  \
+    average = 0.0;                                                          \
+    ptr = data;                                                             \
+    for (int j = 0; j < runs; j++) {                                        \
+        start = get_timer();                                                \
+        func(ptr, result, buffer_size);                                     \
+        elapse = (double)((get_timer() - start)) / (double)freq;            \
+        min_value = MIN(min_value, elapse);                                 \
+        max_value = MAX(max_value, elapse);                                 \
+        average += elapse * 1.0 / (double)runs;                             \
+        ptr += buffer_size;                                                 \
+    }                                                                       \
+                                                                            \
+    printf("%-20s : %f %f %f secs\n", name, min_value, average, max_value); \
+    if(f)                                                                   \
+        fprintf(f, "%s,%f,%f,%f\n", name, min_value, average, max_value)
 
 int main(int argc, char *argv[])
 {
@@ -270,16 +289,24 @@ int main(int argc, char *argv[])
     int has_hardware_f16 = 1;
     int first = 0;
 
+    FILE *f = NULL;
+    f = fopen("float2half_result.csv","wb");
+
 #if defined(ARCH_X86)
     // print cpu name and check for f16c instruction
     CPUInfo info = {0};
     get_cpu_info(&info);
     printf("CPU: %s %s\n", info.name, info.extensions);
+    if (f)
+        fprintf(f, "%s,%s\n", info.name, info.extensions);
     has_hardware_f16 = info.flags & X86_CPU_FLAG_F16C;
     if (!has_hardware_f16) {
         printf("** CPU does not support f16c instruction, skipping some tests **\n");
         first = 1;
     }
+#else
+    if (f)
+        fprintf(f, "\n" );
 #endif
 
     init_table();
@@ -302,6 +329,10 @@ int main(int argc, char *argv[])
     printf("\r\nruns: %d, buffer size: %d, random f32 <= HALF_MAX\n\n", TEST_RUNS, BUFFER_SIZE);
     randomize_buffer(data, BUFFER_SIZE * TEST_RUNS, 1);
 
+    if (f)
+        fprintf(f, "\n%s\n%s,%s,%s,%s\n", "random f32 <= HALF_MAX", "name", "min", "avg", "max");
+
+
     printf("%-20s :      min      avg     max\n", "name");
     for (int i = first; i < TEST_COUNT; i++) {
         TIME_FUNC(f16_tests[i].name, f16_tests[i].f32_to_f16_buffer, BUFFER_SIZE, TEST_RUNS);
@@ -312,6 +343,9 @@ int main(int argc, char *argv[])
     srand(time(NULL));
     printf("\r\nruns: %d, buffer size: %d, random f32 full +inf+nan\n\n", TEST_RUNS, BUFFER_SIZE);
     randomize_buffer(data, BUFFER_SIZE * TEST_RUNS, 0);
+
+    if (f)
+        fprintf(f, "\n%s\n%s,%s,%s,%s\n", "random f32 full +inf+nan", "name", "min", "avg", "max");
 
     printf("%-20s :      min      avg     max\n", "name");
     for (int i = first; i < TEST_COUNT; i++) {
@@ -328,12 +362,18 @@ int main(int argc, char *argv[])
     if (has_hardware_f16) {
         printf("\nchecking accuracy against hardware\n\n");
         start = get_timer();
-        test_hardware_accuracy();
+        test_hardware_accuracy(f);
         elapse = (double)((get_timer() - start)) / (double)freq;
         printf("\nhardware check in %f secs\n",  elapse);
 
     } else {
         printf("\nskipping hardware accuracy test\n");
     }
+
 #endif
+    if (f) {
+        fprintf(f, "\n");
+        fclose(f);
+    }
+
 }

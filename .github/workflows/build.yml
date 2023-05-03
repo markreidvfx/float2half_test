@@ -20,6 +20,7 @@ jobs:
       with:
         name: float2half_test_linux
         path: |
+          float2half_result.csv
           float2half
           half2float
 
@@ -37,6 +38,7 @@ jobs:
       with:
         name: float2half_test_macos
         path: |
+          float2half_result.csv
           float2half
           half2float
 
@@ -58,5 +60,6 @@ jobs:
       with:
         name: float2half_test_win64
         path: |
+          float2half_result.csv
           float2half.exe
           half2float.exe

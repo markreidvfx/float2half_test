@@ -31,7 +31,8 @@
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
 
-static char PLATFORM_NAME_BUFFER[512];
+#define MAX_BUF 1024
+static char PLATFORM_NAME_BUFFER[MAX_BUF];
 
 typedef union {
         uint32_t i;
@@ -86,6 +87,12 @@ static char * get_platform_name()
 #include <time.h>
 #include <unistd.h>
 #include <sys/utsname.h>
+#if __APPLE__
+#include <sys/sysctl.h>
+#endif
+
+static char BUFFER[MAX_BUF];
+static char CPU_MODEL_NAME[MAX_BUF];
 
 static uint64_t get_timer_frequency()
 {
@@ -100,16 +107,55 @@ static uint64_t get_timer(void)
     return Result;
 }
 
+
 static char * get_platform_name()
 {
+#if __APPLE__
+    size_t size = MAX_BUF;
+    char product_version[MAX_BUF] = {0};
+    if (sysctlbyname("kern.osproductversion", product_version, &size, NULL, 0) < 0) {
+        return PLATFORM_NAME;
+    }
+    sprintf(PLATFORM_NAME_BUFFER, "%s %s", PLATFORM_NAME, product_version);
+#else
     struct utsname info;
     if (uname(&info) != 0) {
         perror("Failed to get system information");
         return PLATFORM_NAME;
     }
     sprintf(PLATFORM_NAME_BUFFER, "%s %s %s %s", info.sysname, info.release, info.version, info.machine);
+#endif
     return PLATFORM_NAME_BUFFER;
 }
+
+
+static char * get_cpu_model_name()
+{
+#if __APPLE__
+    size_t size = MAX_BUF;
+    if (sysctlbyname("machdep.cpu.brand_string", CPU_MODEL_NAME, &size, NULL, 0) < 0) {
+        return CPU_ARCH;
+    }
+#else
+    sprintf(CPU_MODEL_NAME, "%s", CPU_ARCH);
+    FILE *fp = fopen("/proc/cpuinfo", "r");
+    if (fp) {
+        while (fgets(BUFFER, MAX_BUF, fp) != NULL) {
+
+            if (sscanf(BUFFER, "model name : %[^\n]", CPU_MODEL_NAME) == 1) {
+                break;
+            }
+
+            if (sscanf(BUFFER, "Model : %[^\n]", CPU_MODEL_NAME) == 1) {
+                break;
+            }
+        }
+    fclose(fp);
+    }
+#endif
+    return CPU_MODEL_NAME;
+}
+
 #endif
 
 typedef struct F16Test {
@@ -348,9 +394,9 @@ int main(int argc, char *argv[])
         first = 1;
     }
 #else
-    printf("CPU: %s\n", CPU_ARCH);
+    printf("CPU: %s %s\n", CPU_ARCH, get_cpu_model_name());
     if (f)
-        fprintf(f, "%s\n", CPU_ARCH);
+        fprintf(f, "%s,%s\n", CPU_ARCH, get_cpu_model_name());
 #endif
 
     printf("%s %s\n", get_platform_name(), COMPILER_NAME);

@@ -23,12 +23,12 @@
     #define CPU_ARCH "Unknown CPU architecture"
 #endif
 
-#if defined(__GNUC__) && defined(__GNUC_MINOR__) && defined(__GNUC_PATCHLEVEL__)
-#define COMPILER_NAME "gnu gcc " \
-    STRINGIFY(__GNUC__) "." STRINGIFY(__GNUC_MINOR__) "." STRINGIFY(__GNUC_PATCHLEVEL__)
-#elif defined(__clang_major__) && defined(__clang_minor__) && defined(__clang_patchlevel__)
+#if defined(__clang_major__) && defined(__clang_minor__) && defined(__clang_patchlevel__)
 #define COMPILER_NAME "clang " \
     STRINGIFY(__clang_major__) "." STRINGIFY(__clang_minor__) "." STRINGIFY(__clang_patchlevel__)
+#elif defined(__GNUC__) && defined(__GNUC_MINOR__) && defined(__GNUC_PATCHLEVEL__)
+#define COMPILER_NAME "gnu gcc " \
+    STRINGIFY(__GNUC__) "." STRINGIFY(__GNUC_MINOR__) "." STRINGIFY(__GNUC_PATCHLEVEL__)
 #elif defined(_MSC_VER)
 #define COMPILER_NAME "MSVC " STRINGIFY(_MSC_VER)
 #else

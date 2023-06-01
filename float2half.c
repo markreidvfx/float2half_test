@@ -424,7 +424,7 @@ int main(int argc, char *argv[])
     randomize_buffer(data, BUFFER_SIZE * TEST_RUNS, 1);
 
     if (f)
-        fprintf(f, "\nperf_test,%s\n%s,%s,%s,%s\n", "random f32 <= HALF_MAX", "name", "min", "avg", "max");
+        fprintf(f, "\nperf_test,runs: %d buffer size: %d %s,\n%s,%s,%s,%s\n", TEST_RUNS, BUFFER_SIZE,"random f32 <= HALF_MAX", "name", "min", "avg", "max");
 
 
     printf("%-20s :      min      avg     max\n", "name");
@@ -439,7 +439,7 @@ int main(int argc, char *argv[])
     randomize_buffer(data, BUFFER_SIZE * TEST_RUNS, 0);
 
     if (f)
-        fprintf(f, "\nperf_test,%s\n%s,%s,%s,%s\n", "random f32 full +inf+nan", "name", "min", "avg", "max");
+        fprintf(f, "\nperf_test,runs: %d buffer size: %d %s,\n%s,%s,%s,%s\n", TEST_RUNS, BUFFER_SIZE,"random f32 full +inf+nan", "name", "min", "avg", "max");
 
     printf("%-20s :      min      avg     max\n", "name");
     for (int i = first; i < TEST_COUNT; i++) {

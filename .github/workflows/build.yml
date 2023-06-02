@@ -15,7 +15,18 @@ jobs:
     - name: build and test
       run: sh ./build.sh
 
-    - name: "upload artifact"
+    - name: set up python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: create graphs
+      shell: bash
+      run: |
+        python -m pip install matplotlib
+        python graph.py float2half_result.csv
+
+    - name: upload artifact
       uses: actions/upload-artifact@v3
       with:
         name: float2half_test_linux
@@ -23,6 +34,7 @@ jobs:
           float2half_result.csv
           float2half
           half2float
+          images/*.png
 
   build-macos:
 
@@ -33,7 +45,18 @@ jobs:
     - name: build and test
       run: sh ./build.sh
 
-    - name: "upload artifact"
+    - name: set up python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: create graphs
+      shell: bash
+      run: |
+        python -m pip install matplotlib
+        python graph.py float2half_result.csv
+
+    - name: upload artifact
       uses: actions/upload-artifact@v3
       with:
         name: float2half_test_macos
@@ -41,6 +64,7 @@ jobs:
           float2half_result.csv
           float2half
           half2float
+          images/*.png
 
   build-windows:
 
@@ -55,6 +79,17 @@ jobs:
     - name: build and test
       run: cmd /c build.bat
 
+    - name: set up python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: create graphs
+      shell: bash
+      run: |
+        python -m pip install matplotlib
+        python graph.py float2half_result.csv
+
     - name: "upload artifact"
       uses: actions/upload-artifact@v3
       with:
@@ -63,3 +98,4 @@ jobs:
           float2half_result.csv
           float2half.exe
           half2float.exe
+          images/*.png

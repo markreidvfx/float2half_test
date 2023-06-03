@@ -74,7 +74,7 @@ static char * get_platform_name()
             ZeroMemory(&osw, sizeof(osw));
             osw.dwOSVersionInfoSize = sizeof(osw);
             if (RtlGetVersion(&osw) == 0) {
-                sprintf(PLATFORM_NAME_BUFFER, "Windows %d.%d", osw.dwMajorVersion, osw.dwMinorVersion);
+                sprintf(PLATFORM_NAME_BUFFER, "Windows " CPU_ARCH " %d.%d", osw.dwMajorVersion, osw.dwMinorVersion);
             }
         }
         FreeLibrary(hMod);
@@ -415,7 +415,7 @@ int main(int argc, char *argv[])
     uint16_t *result = (uint16_t*) malloc(sizeof(uint16_t) * BUFFER_SIZE * TEST_RUNS);
 
     if (!data || !result) {
-        printf("malloc error");
+        printf("malloc error\n");
         return -1;
     }
 

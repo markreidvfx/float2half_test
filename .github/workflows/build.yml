@@ -69,12 +69,17 @@ jobs:
   build-windows:
 
     runs-on: windows-latest
+    strategy:
+      matrix:
+        arch:
+          - x64
+          - x86
 
     steps:
     - uses: actions/checkout@v3
     - uses: ilammy/msvc-dev-cmd@v1
       with:
-          arch: amd64
+          arch: ${{matrix.arch}}
 
     - name: build and test
       run: cmd /c build.bat
@@ -93,7 +98,7 @@ jobs:
     - name: "upload artifact"
       uses: actions/upload-artifact@v3
       with:
-        name: float2half_test_win64
+        name: float2half_test_windows_${{matrix.arch}}
         path: |
           float2half_result.csv
           float2half.exe

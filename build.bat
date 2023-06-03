@@ -17,7 +17,7 @@ cl /nologo /c maratyszcza_sse2\maratyszcza_sse2.c /O2 /Fomaratyszcza_sse2.obj ||
 cl /nologo /c x86_cpu_info.c /O2 /Fox86_cpu_info.obj || goto :error
 
 
-cl /nologo float2half.c -O2 /link x86_cpu_info.obj hardware.obj table.obj table_round.obj no_table.obj imath.obj cpython.obj numpy.obj tursa.obj ryg.obj maratyszcza.obj maratyszcza_nanfix.obj maratyszcza_sse2.obj || goto :error
+cl /nologo float2half.c -O2 /link /LARGEADDRESSAWARE x86_cpu_info.obj hardware.obj table.obj table_round.obj no_table.obj imath.obj cpython.obj numpy.obj tursa.obj ryg.obj maratyszcza.obj maratyszcza_nanfix.obj maratyszcza_sse2.obj || goto :error
 cl /nologo half2float.c -O2 /link x86_cpu_info.obj hardware.obj table.obj table_round.obj no_table.obj imath.obj cpython.obj numpy.obj tursa.obj ryg.obj maratyszcza.obj maratyszcza_nanfix.obj maratyszcza_sse2.obj || goto :error
 
 float2half.exe || goto :error

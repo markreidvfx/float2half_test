@@ -106,6 +106,7 @@ def draw_perf_graph(graph_a, graph_b):
     ax.set_xlabel('Seconds (less is better)')
 
     # plt.show()
+    title = title.replace("\n", " ")
     filename = "".join([c for c in title if c.isalpha() or c.isdigit() or c==' ']).rstrip()
     outdir = "images"
     outimage = os.path.join(outdir, f"{filename}.png")

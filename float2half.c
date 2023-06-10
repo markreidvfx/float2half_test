@@ -187,8 +187,7 @@ const static F16Test f16_tests[] =
 
 #define PRINT_ERROR_RESULT(name, count, total) \
     printf("%-20s : %g%% \n", name,  100.0 - (100.0 * count/(double)total)); \
-    if (f)                                                                   \
-        fprintf(f, "%s,%f,%f\n", name, (double)count, (double)total)
+    fprintf(f, "%s,%f,%f\n", name, (double)count, (double)total)
 
 void test_hardware_accuracy(FILE *f)
 {
@@ -267,40 +266,35 @@ void test_hardware_accuracy(FILE *f)
     }
 
     printf("\rnormal/denormal value matches hardware, out of %u:\n", half_total);
-    if (f)
-        fprintf(f, "\nerror_test,normal/denormal value matches hardware\nname,error,total\n");
+    fprintf(f, "\nerror_test,normal/denormal value matches hardware\nname,error,total\n");
 
     for (int i = 1; i < TEST_COUNT; i++) {
         PRINT_ERROR_RESULT(f16_tests[i].name, half_error[i], half_total);
     }
 
     printf("\nnan value exactly matches hardware, out of %u:\n", nan_total);
-    if (f)
-        fprintf(f, "\nerror_test,nan value exactly matches hardware\nname,error,total\n");
+    fprintf(f, "\nerror_test,nan value exactly matches hardware\nname,error,total\n");
 
     for (int i = 1; i < TEST_COUNT; i++) {
         PRINT_ERROR_RESULT(f16_tests[i].name, nan_exact_error[i], nan_total);
     }
 
     printf("\nnan is a nan value but might not match hardware, out of %u:\n", nan_total);
-    if (f)
-        fprintf(f, "\nerror_test,nan is a nan value but might not match hardware\nname,error,total\n");
+    fprintf(f, "\nerror_test,nan is a nan value but might not match hardware\nname,error,total\n");
 
     for (int i = 1; i < TEST_COUNT; i++) {
         PRINT_ERROR_RESULT(f16_tests[i].name, nan_error[i], nan_total);
     }
 
     printf("\n+/-inf value matches hardware, out of %u:\n", inf_total);
-    if (f)
-        fprintf(f, "\nerror_test,+/-inf value matches hardware\nname,error,total\n");
+    fprintf(f, "\nerror_test,+/-inf value matches hardware\nname,error,total\n");
 
     for (int i = 1; i < TEST_COUNT; i++) {
         PRINT_ERROR_RESULT(f16_tests[i].name, inf_error[i], inf_total);
     }
 
     printf("\ntotal exact hardware match:\n");
-    if (f)
-        fprintf(f, "\nerror_test,total exact hardware match\nname,error,total\n");
+    fprintf(f, "\nerror_test,total exact hardware match\nname,error,total\n");
 
     for (int i = 1; i < TEST_COUNT; i++) {
         PRINT_ERROR_RESULT(f16_tests[i].name, full_error[i], UINT32_MAX);
@@ -361,8 +355,7 @@ void randomize_buffer(uint32_t *data, size_t size, int real_only)
     }                                                                       \
                                                                             \
     printf("%-20s : %f %f %f secs\n", name, min_value, average, max_value); \
-    if(f)                                                                   \
-        fprintf(f, "%s,%f,%f,%f\n", name, min_value, average, max_value)
+    fprintf(f, "%s,%f,%f,%f\n", name, min_value, average, max_value)
 
 int main(int argc, char *argv[])
 {
@@ -380,14 +373,18 @@ int main(int argc, char *argv[])
 
     FILE *f = NULL;
     f = fopen("float2half_result.csv","wb");
+    if (!f) {
+        printf("unable to open file: 'float2half_result.csv'\n");
+        return -1;
+    }
 
 #if defined(ARCH_X86)
     // print cpu name and check for f16c instruction
     CPUInfo info = {0};
     get_cpu_info(&info);
     printf("CPU: %s %s %s\n", CPU_ARCH, info.name, info.extensions);
-    if (f)
-        fprintf(f, "%s,%s,%s\n", CPU_ARCH, info.name, info.extensions);
+    fprintf(f, "%s,%s,%s\n", CPU_ARCH, info.name, info.extensions);
+
     has_hardware_f16 = info.flags & X86_CPU_FLAG_F16C;
     if (!has_hardware_f16) {
         printf("** CPU does not support f16c instruction, skipping some tests **\n");
@@ -400,8 +397,7 @@ int main(int argc, char *argv[])
 #endif
 
     printf("%s %s\n", get_platform_name(), COMPILER_NAME);
-    if (f)
-        fprintf(f, "%s,%s\n", get_platform_name(), COMPILER_NAME);
+    fprintf(f, "%s,%s\n", get_platform_name(), COMPILER_NAME);
 
     init_table();
     init_table_round();
@@ -423,11 +419,8 @@ int main(int argc, char *argv[])
     printf("\r\nruns: %d, buffer size: %d, random f32 <= HALF_MAX\n\n", TEST_RUNS, BUFFER_SIZE);
     randomize_buffer(data, BUFFER_SIZE * TEST_RUNS, 1);
 
-    if (f)
-        fprintf(f, "\nperf_test,runs: %d buffer size: %d %s,\n%s,%s,%s,%s\n", TEST_RUNS, BUFFER_SIZE,"random f32 <= HALF_MAX", "name", "min", "avg", "max");
-
-
     printf("%-20s :      min      avg     max\n", "name");
+    fprintf(f, "\nperf_test,runs: %d buffer size: %d %s,\n%s,%s,%s,%s\n", TEST_RUNS, BUFFER_SIZE,"random f32 <= HALF_MAX", "name", "min", "avg", "max");
     for (int i = first; i < TEST_COUNT; i++) {
         TIME_FUNC(f16_tests[i].name, f16_tests[i].f32_to_f16_buffer, BUFFER_SIZE, TEST_RUNS);
     }
@@ -438,10 +431,10 @@ int main(int argc, char *argv[])
     printf("\r\nruns: %d, buffer size: %d, random f32 full +inf+nan\n\n", TEST_RUNS, BUFFER_SIZE);
     randomize_buffer(data, BUFFER_SIZE * TEST_RUNS, 0);
 
-    if (f)
-        fprintf(f, "\nperf_test,runs: %d buffer size: %d %s,\n%s,%s,%s,%s\n", TEST_RUNS, BUFFER_SIZE,"random f32 full +inf+nan", "name", "min", "avg", "max");
+
 
     printf("%-20s :      min      avg     max\n", "name");
+    fprintf(f, "\nperf_test,runs: %d buffer size: %d %s,\n%s,%s,%s,%s\n", TEST_RUNS, BUFFER_SIZE,"random f32 full +inf+nan", "name", "min", "avg", "max");
     for (int i = first; i < TEST_COUNT; i++) {
         TIME_FUNC(f16_tests[i].name, f16_tests[i].f32_to_f16_buffer, BUFFER_SIZE, TEST_RUNS);
     }
@@ -465,9 +458,7 @@ int main(int argc, char *argv[])
     }
 
 #endif
-    if (f) {
-        fprintf(f, "\n");
-        fclose(f);
-    }
+    fprintf(f, "\n");
+    fclose(f);
 
 }

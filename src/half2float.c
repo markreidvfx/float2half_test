@@ -7,6 +7,11 @@
 #include <time.h>
 #include "hardware/hardware.h"
 
+#include "platform_info.h"
+#if defined(ARCH_X86)
+#include "x86_cpu_info.h"
+#endif
+
 typedef struct Half2FloatTables {
     uint32_t mantissatable[3072];
     uint32_t exponenttable[64];
@@ -69,6 +74,20 @@ static inline uint32_t table_half2float(uint16_t h, const Half2FloatTables *t)
 
 int main(int argc, char *argv[])
 {
+
+#if defined(ARCH_X86)
+    // print cpu name and check for f16c instruction
+    CPUInfo info = {0};
+    get_cpu_info(&info);
+    printf("CPU: %s %s %s\n", CPU_ARCH, info.name, info.extensions);
+
+    if (!(info.flags & X86_CPU_FLAG_F16C)) {
+        printf("** CPU does not support f16c instruction, skipping test **\n");
+        return 0;
+    }
+#else
+    printf("CPU: %s %s\n", CPU_ARCH, get_cpu_model_name());
+#endif
 
     union {
         float f;

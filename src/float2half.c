@@ -372,9 +372,16 @@ int main(int argc, char *argv[])
     int first = 0;
 
     FILE *f = NULL;
-    f = fopen("float2half_result.csv","wb");
+    char *csv_path = NULL;
+
+    if (argc > 1)
+        csv_path = argv[1];
+    else
+        csv_path = "float2half_result.csv";
+
+    f = fopen(csv_path,"wb");
     if (!f) {
-        printf("unable to open file: 'float2half_result.csv'\n");
+        printf("unable to open csv file: %s'\n", csv_path);
         return -1;
     }
 
@@ -398,6 +405,7 @@ int main(int argc, char *argv[])
 
     printf("%s %s\n", get_platform_name(), COMPILER_NAME);
     fprintf(f, "%s,%s\n", get_platform_name(), COMPILER_NAME);
+    printf("csv file: %s\n", csv_path);
 
     init_table();
     init_table_round();

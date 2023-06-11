@@ -1,106 +1,77 @@
 name: Build
+
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "cmake"]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "cmake" ]
 
 jobs:
-  build-linux:
-
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v3
-    - name: build and test
-      run: sh ./build.sh
-
-    - name: set up python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'
-
-    - name: create graphs
-      shell: bash
-      run: |
-        python -m pip install matplotlib
-        python graph.py float2half_result.csv
-
-    - name: upload artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: float2half_test_linux
-        path: |
-          float2half_result.csv
-          float2half
-          half2float
-          images/*.png
-
-  build-macos:
-
-    runs-on: macos-latest
-
-    steps:
-    - uses: actions/checkout@v3
-    - name: build and test
-      run: sh ./build.sh
-
-    - name: set up python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'
-
-    - name: create graphs
-      shell: bash
-      run: |
-        python -m pip install matplotlib
-        python graph.py float2half_result.csv
-
-    - name: upload artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: float2half_test_macos
-        path: |
-          float2half_result.csv
-          float2half
-          half2float
-          images/*.png
-
-  build-windows:
-
-    runs-on: windows-latest
+  build:
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        arch:
-          - x64
-          - x86
+        include:
+        - { name: linux_gcc,   os: ubuntu-latest,  cc: gcc,   shell: bash }
+        - { name: linux_clang, os: ubuntu-latest,  cc: clang, shell: bash }
+        - { name: win32_msvc,  os: windows-latest, cc: msvc,  shell: pwsh, cmake_config: "-A Win32", cmake_build: "--config Release"}
+        - { name: win64_msvc,  os: windows-latest, cc: msvc,  shell: pwsh, cmake_config: "-A x64",   cmake_build: "--config Release"}
+        - { name: win64_gcc,   os: windows-latest, cc: gcc,   shell: msys2 }
+        - { name: win64_clang, os: windows-latest, cc: clang, shell: msys2 }
+        - { name: macos_clang, os: macos-latest,   cc: clang, shell: bash  }
+
+    name: ${{ matrix.name }}
+    env:
+      CC: ${{ matrix.cc }}
+    defaults:
+      run:
+        shell: '${{ matrix.shell }} {0}'
 
     steps:
     - uses: actions/checkout@v3
-    - uses: ilammy/msvc-dev-cmd@v1
+
+    - name: Setup MSYS2
+      if: runner.os == 'Windows' && (matrix.cc == 'gcc' || matrix.cc == 'clang')
+      uses: msys2/setup-msys2@v2
       with:
-          arch: ${{matrix.arch}}
+        msystem: mingw64
+        install: >-
+          mingw-w64-x86_64-gcc
+          mingw-w64-x86_64-clang
+          mingw-w64-x86_64-cmake
 
-    - name: build and test
-      run: cmd /c build.bat
-
-    - name: set up python
+    - name: Setup Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.10'
 
-    - name: create graphs
+    - name: Build
+      run: |
+        mkdir build
+        cd build
+        cmake .. ${{ matrix.cmake_config }}
+        cmake --build . -v ${{ matrix.cmake_build }}
+        cmake --install . --prefix ../${{ matrix.name }} ${{ matrix.cmake_build }}
+
+    - name: Test
+      run: |
+        cd ${{ matrix.name }}
+        ./bin/float2half ./float2half_result.csv
+        ./bin/half2float
+
+    - name: Create Graphs
       shell: bash
       run: |
         python -m pip install matplotlib
-        python graph.py float2half_result.csv
+        python scripts/graph.py ./${{ matrix.name }}/float2half_result.csv
+        mkdir upload_dir
+        # move files into place for upload
+        mv ./${{ matrix.name }} ./upload_dir/
+        mv ./images ./upload_dir/
 
-    - name: "upload artifact"
+    - name: Upload Artifact
       uses: actions/upload-artifact@v3
       with:
-        name: float2half_test_windows_${{matrix.arch}}
+        name: artifacts
         path: |
-          float2half_result.csv
-          float2half.exe
-          half2float.exe
-          images/*.png
+          upload_dir/*

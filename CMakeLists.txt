@@ -25,5 +25,5 @@ endif()
 add_subdirectory(src)
 
 enable_testing()
-add_test(NAME float2half COMMAND float2half)
+add_test(NAME float2half COMMAND float2half ${CMAKE_CURRENT_SOURCE_DIR}/float2half_result.csv)
 add_test(NAME half2float COMMAND half2float)

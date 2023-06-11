@@ -6,7 +6,7 @@ typedef union {
         float    f;
 } int_float;
 
-#ifdef USE_ARM
+#if defined(__aarch64__) || defined(__arm__)
 static inline uint16_t to_f16(float v)
 {
     union {
@@ -73,7 +73,7 @@ float f16_to_f32_hw(uint16_t f)
     return value.f;
 }
 
-#if defined(USE_ARM)
+#if defined(__aarch64__) || defined(__arm__)
 void f32_to_f16_buffer_hw(uint32_t *data, uint16_t *result, int data_size)
 {
     int_float value;

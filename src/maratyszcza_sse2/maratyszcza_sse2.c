@@ -93,8 +93,10 @@ void f32_to_f16_buffer_maratyszcza_sse2(uint32_t *data, uint16_t *result, int da
     int size = data_size / 4 * 4;
     int remainder = data_size - size;
 
+#if DEBUG_VERIFY
     uint32_t *base_src = data;
     uint16_t *base_dst = result;
+#endif
 
     for (int i = 0; i < size; i+=4) {
         __m128 ps = _mm_loadu_ps((float*)data);

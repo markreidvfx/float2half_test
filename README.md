@@ -15,6 +15,11 @@ the lower 13 bits of the mantissa.
 
 `table_float2half_round` show a branchless way of rounding and retaining all NaNs.
 
+
+Additional methods have been added from this article
+
+https://www.corsix.org/content/converting-fp32-to-fp16
+
 # Results
 ```
 CPU: x86_64 Intel(R) Xeon(R) Platinum 8171M CPU @ 2.60GHz +sse2+sse3+ssse3+sse4+sse42+avx+avx2+f16c

@@ -265,8 +265,8 @@ void test_hardware_accuracy(FILE *f)
         }
     }
 
-    printf("\rnormal/denormal value matches hardware, out of %u:\n", half_total);
-    fprintf(f, "\nerror_test,normal/denormal value matches hardware\nname,error,total\n");
+    printf("\rnormal and denormal value matches hardware, out of %u:\n", half_total);
+    fprintf(f, "\nerror_test,normal and denormal value matches hardware\nname,error,total\n");
 
     for (int i = 1; i < TEST_COUNT; i++) {
         PRINT_ERROR_RESULT(f16_tests[i].name, half_error[i], half_total);

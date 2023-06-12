@@ -110,6 +110,7 @@ def draw_perf_graph(graph_a, graph_b):
     # plt.show()
     out_filename = out_filename.replace("\n", " ")
     filename = "".join([c for c in out_filename if c.isalpha() or c.isdigit() or c==' ']).rstrip()
+    filename = filename.replace(" ", "_")
     outdir = "images"
     outimage = os.path.join(outdir, f"{filename}.png")
     if not os.path.exists(outdir):
@@ -122,6 +123,8 @@ def draw_accuracy_graph(graph_data):
     error_min = []
     error_max = []
     graph_type = graph_data['type']
+
+    total_values = None
 
     for row in graph_data['data']:
         labels.append(row[0])
@@ -136,6 +139,7 @@ def draw_accuracy_graph(graph_data):
         else:
             v = float(row[1])
             r = float(row[2])
+            total_values = int(r)
             group_data.append((r-v)/r * 100.0)
 
 
@@ -159,7 +163,7 @@ def draw_accuracy_graph(graph_data):
     else:
         title = name
         hbars = ax.barh(y_pos, group_data, color=colors)
-        ax.set_xlabel('Percentage Of Values That Match Hardware')
+        ax.set_xlabel(f'Percentage Of Values That Match ( Out Of {total_values} Values)')
         ax.bar_label(hbars, fmt='%.2f%%', label_type='center', padding=30)
         ax.xaxis.set_major_formatter(EngFormatter(unit="%"))
 
@@ -171,6 +175,7 @@ def draw_accuracy_graph(graph_data):
     # plt.show()
 
     filename = "".join([c for c in title if c.isalpha() or c.isdigit() or c==' ']).rstrip()
+    filename = filename.replace(" ", "_")
     outdir = "images"
     outimage = os.path.join(outdir, f"{filename}.png")
     if not os.path.exists(outdir):

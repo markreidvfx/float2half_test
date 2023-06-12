@@ -99,15 +99,17 @@ def draw_perf_graph(graph_a, graph_b):
 
     info = graph_a['os_info']
 
-    title = f"1920x1080 RGBA frame convert speed\n{info['cpu_name']}\n{info['os_name']} {info['compiler']}"
+    out_filename = f"{info['cpu_name']}\n{info['os_name']} {info['compiler']}"
+    out_filename = out_filename.strip()
+    title = f"1920x1080 RGBA frame convert speed\n{out_filename}"
 
     ax.set_title(title)
     plt.subplots_adjust(top=0.85, left=0.2)
     ax.set_xlabel('Seconds (less is better)')
 
     # plt.show()
-    title = title.replace("\n", " ")
-    filename = "".join([c for c in title if c.isalpha() or c.isdigit() or c==' ']).rstrip()
+    out_filename = out_filename.replace("\n", " ")
+    filename = "".join([c for c in out_filename if c.isalpha() or c.isdigit() or c==' ']).rstrip()
     outdir = "images"
     outimage = os.path.join(outdir, f"{filename}.png")
     if not os.path.exists(outdir):

@@ -63,11 +63,14 @@ jobs:
       shell: bash
       run: |
         python -m pip install matplotlib
-        python scripts/graph.py ./${{ matrix.name }}/float2half_result.csv
-        mkdir upload_dir
+        mkdir graph
+        cd graph
+        python ../scripts/graph.py ../${{ matrix.name }}/float2half_result.csv
+        cd ..
         # move files into place for upload
+        mkdir upload_dir
         mv ./${{ matrix.name }} ./upload_dir/
-        mv ./images ./upload_dir/
+        mv ./graph/images ./upload_dir/
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v3

@@ -3,13 +3,12 @@
 #include <stdint.h>
 #include <assert.h>
 
-#include <float.h>
-#include <time.h>
-#include <math.h>
-#include <inttypes.h>
-#include <assert.h>
-
 #include "platform_info.h"
+
+#include <float.h>
+#include <math.h>
+#include <time.h>
+#include <inttypes.h>
 
 #include "hardware/hardware.h"
 #include "table/table.h"
@@ -31,132 +30,11 @@
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
 
-#define MAX_BUF 1024
-static char PLATFORM_NAME_BUFFER[MAX_BUF];
-
 typedef union {
         uint32_t i;
         float    f;
 } int_float;
 
-#if _WIN32
-#include <windows.h>
-#include <intrin.h>
-#define strdup _strdup
-
-static uint64_t get_timer_frequency()
-{
-    LARGE_INTEGER Result;
-    QueryPerformanceFrequency(&Result);
-    return Result.QuadPart;
-}
-static uint64_t get_timer(void)
-{
-    LARGE_INTEGER Result;
-    QueryPerformanceCounter(&Result);
-    return Result.QuadPart;
-}
-
-typedef BOOL (WINAPI * RtlGetVersion_FUNC) (OSVERSIONINFOEXW *);
-
-static char * get_platform_name()
-{
-    HMODULE hMod;
-    RtlGetVersion_FUNC RtlGetVersion;
-    OSVERSIONINFOEXW osw;
-
-    sprintf(PLATFORM_NAME_BUFFER, "%s", PLATFORM_NAME);
-
-    hMod = LoadLibrary(TEXT("ntdll.dll"));
-    if (hMod) {
-        RtlGetVersion = (RtlGetVersion_FUNC)GetProcAddress(hMod, "RtlGetVersion");
-        if (RtlGetVersion) {
-            ZeroMemory(&osw, sizeof(osw));
-            osw.dwOSVersionInfoSize = sizeof(osw);
-            if (RtlGetVersion(&osw) == 0) {
-                sprintf(PLATFORM_NAME_BUFFER, "Windows " CPU_ARCH " %d.%d", osw.dwMajorVersion, osw.dwMinorVersion);
-            }
-        }
-        FreeLibrary(hMod);
-    }
-
-    return PLATFORM_NAME_BUFFER;
-}
-
-#else
-#include <time.h>
-#include <unistd.h>
-#include <sys/utsname.h>
-#if __APPLE__
-#include <sys/sysctl.h>
-#endif
-
-static char BUFFER[MAX_BUF];
-static char CPU_MODEL_NAME[MAX_BUF];
-
-static uint64_t get_timer_frequency()
-{
-    uint64_t Result = 1000000000ull;
-    return Result;
-}
-static uint64_t get_timer(void)
-{
-    struct timespec Spec;
-    clock_gettime(CLOCK_MONOTONIC, &Spec);
-    uint64_t Result = ((uint64_t)Spec.tv_sec * 1000000000ull) + (uint64_t)Spec.tv_nsec;
-    return Result;
-}
-
-
-static char * get_platform_name()
-{
-#if __APPLE__
-    size_t size = MAX_BUF;
-    char product_version[MAX_BUF] = {0};
-    if (sysctlbyname("kern.osproductversion", product_version, &size, NULL, 0) < 0) {
-        return PLATFORM_NAME;
-    }
-    sprintf(PLATFORM_NAME_BUFFER, "%s %s", PLATFORM_NAME, product_version);
-#else
-    struct utsname info;
-    if (uname(&info) != 0) {
-        perror("Failed to get system information");
-        return PLATFORM_NAME;
-    }
-    sprintf(PLATFORM_NAME_BUFFER, "%s %s %s %s", info.sysname, info.release, info.version, info.machine);
-#endif
-    return PLATFORM_NAME_BUFFER;
-}
-
-
-static char * get_cpu_model_name()
-{
-#if __APPLE__
-    size_t size = MAX_BUF;
-    if (sysctlbyname("machdep.cpu.brand_string", CPU_MODEL_NAME, &size, NULL, 0) < 0) {
-        return CPU_ARCH;
-    }
-#else
-    sprintf(CPU_MODEL_NAME, "%s", CPU_ARCH);
-    FILE *fp = fopen("/proc/cpuinfo", "r");
-    if (fp) {
-        while (fgets(BUFFER, MAX_BUF, fp) != NULL) {
-
-            if (sscanf(BUFFER, "model name : %[^\n]", CPU_MODEL_NAME) == 1) {
-                break;
-            }
-
-            if (sscanf(BUFFER, "Model : %[^\n]", CPU_MODEL_NAME) == 1) {
-                break;
-            }
-        }
-    fclose(fp);
-    }
-#endif
-    return CPU_MODEL_NAME;
-}
-
-#endif
 
 typedef struct F16Test {
     const char *name;

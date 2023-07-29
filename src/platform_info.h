@@ -1,6 +1,8 @@
 #ifndef PLATFORM_INFO_H
 #define PLATFORM_INFO_H
 
+#include <stdint.h>
+
 #define STRINGIFY_HELPER(x) #x
 #define STRINGIFY(x) STRINGIFY_HELPER(x)
 
@@ -59,6 +61,49 @@
 #else
   #define PLATFORM_NAME "Unknown platform"
 #endif
+
+#if _WIN32
+#include <windows.h>
+#include <intrin.h>
+#define strdup _strdup
+
+static inline uint64_t get_timer_frequency()
+{
+    LARGE_INTEGER Result;
+    QueryPerformanceFrequency(&Result);
+    return Result.QuadPart;
+}
+static inline uint64_t get_timer(void)
+{
+    LARGE_INTEGER Result;
+    QueryPerformanceCounter(&Result);
+    return Result.QuadPart;
+}
+#else
+#include <time.h>
+#include <unistd.h>
+#include <sys/utsname.h>
+#if __APPLE__
+#include <sys/sysctl.h>
+#endif
+
+inline uint64_t get_timer_frequency()
+{
+    uint64_t Result = 1000000000ull;
+    return Result;
+}
+inline uint64_t get_timer(void)
+{
+    struct timespec Spec;
+    clock_gettime(CLOCK_MONOTONIC, &Spec);
+    uint64_t Result = ((uint64_t)Spec.tv_sec * 1000000000ull) + (uint64_t)Spec.tv_nsec;
+    return Result;
+}
+
+#endif
+
+const char * get_cpu_model_name();
+const char * get_platform_name();
 
 
 #endif // PLATFORM_INFO_H

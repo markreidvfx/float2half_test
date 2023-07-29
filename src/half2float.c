@@ -5,9 +5,10 @@
 
 #include <float.h>
 #include <time.h>
-#include "hardware/hardware.h"
 
 #include "platform_info.h"
+#include "hardware/hardware.h"
+
 #if defined(ARCH_X86)
 #include "x86_cpu_info.h"
 #endif
@@ -101,6 +102,9 @@ int main(int argc, char *argv[])
 
     ff_init_half2float_tables(&h2f_table);
 
+    uint64_t freq = get_timer_frequency();
+    uint64_t start = get_timer();
+
     for (int i = 0; i <= UINT16_MAX; i++) {
         a.f = f16_to_f32_hw(i);
         b.i = table_half2float(i, &h2f_table);
@@ -110,6 +114,7 @@ int main(int argc, char *argv[])
         }
 
     }
-
+    double elapse = (double)((get_timer() - start)) / (double)freq;
+    printf("half2float complete in %f secs\n", elapse);
     return 0;
 }

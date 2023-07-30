@@ -62,7 +62,7 @@ Getting more results from older machines is desirable. Also more AMD machines wo
 
 ![raspberry_pi4](./images/Raspberry_Pi_4_Model_B_Rev_14_Linux_51561v8_1579_SMP_PREEMPT_Fri_Aug_26_111644_BST_2022_aarch64_gnu_gcc_1021.png)
 
-Unfortunately I don't have any arm macs to run the test on :(
+![macOS_m2_max](./images/Apple_M2_Max_macOS_135_clang_1403.png)
 
 # Accuracy Compared To Hardware
 

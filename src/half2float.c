@@ -11,7 +11,18 @@
 
 #if defined(ARCH_X86)
 #include "x86_cpu_info.h"
+#include "emmintrin.h"
 #endif
+
+#include "half2float_table.h"
+
+
+typedef union
+{
+    uint32_t u;
+    float f;
+} int_float;
+
 
 typedef struct Half2FloatTables {
     uint32_t mantissatable[3072];
@@ -66,12 +77,82 @@ void ff_init_half2float_tables(Half2FloatTables *t)
 }
 
 
+
 static inline uint32_t table_half2float(uint16_t h, const Half2FloatTables *t)
 {
     uint32_t f;
     f = t->mantissatable[t->offsettable[h >> 10] + (h & 0x3ff)] + t->exponenttable[h >> 10];
     return f;
 }
+
+// https://fgiesen.wordpress.com/2012/03/28/half-to-float-done-quic/
+static float half_to_float_ryg(uint16_t h)
+{
+    static const int_float magic = { (254 - 15) << 23 };
+    static const int_float was_infnan = { (127 + 16) << 23 };
+    int_float o;
+
+    o.u = (h & 0x7fff) << 13;     // exponent/mantissa bits
+    o.f *= magic.f;               // exponent adjust
+    if (o.f >= was_infnan.f) {    // make sure Inf/NaN survive
+        if (o.u == was_infnan.u)
+            // was ininity
+            o.u |= 0x00FF << 23;
+        else {
+            // was nan, match hardware nan
+            o.u |= 0x01FF << 22;
+        }
+    }
+    o.u |= (h & 0x8000) << 16;    // sign bit
+    return o.f;
+}
+
+#if defined(ARCH_X86)
+
+static inline __m128i sse2_blendv(__m128i a, __m128i b, __m128i mask)
+{
+    return _mm_xor_si128(_mm_and_si128(_mm_xor_si128(a, b), mask), a);
+}
+static inline __m128 sse2_cvtph_ps(__m128i a)
+{
+    __m128 magic      = _mm_castsi128_ps(_mm_set1_epi32((254 - 15) << 23));
+    __m128 was_infnan = _mm_castsi128_ps(_mm_set1_epi32((127 + 16) << 23));
+    __m128 sign;
+    __m128 o;
+
+    // the values to unpack are in the lower 64 bits
+    // | 0 1 | 2 3 | 4 5 | 6 7 | 8 9 | 10 11 | 12 13 | 14 15
+    // | 0 1 | 0 1 | 2 3 | 2 3 | 4 5 |  4  5 | 6   7 | 6   7
+    a = _mm_unpacklo_epi16(a, a);
+
+    // extract sign
+    sign = _mm_castsi128_ps(_mm_slli_epi32(_mm_and_si128(a, _mm_set1_epi32(0x8000)), 16));
+
+    // extract exponent/mantissa bits
+    o = _mm_castsi128_ps(_mm_slli_epi32(_mm_and_si128(a, _mm_set1_epi32(0x7fff)), 13));
+
+    // magic multiply
+    o = _mm_mul_ps(o, magic);
+
+    // blend in inf/nan values only if present
+    __m128i mask = _mm_castps_si128(_mm_cmpge_ps(o, was_infnan));
+    if (_mm_movemask_epi8(mask)) {
+        __m128i ou =  _mm_castps_si128(o);
+        __m128i ou_nan = _mm_or_si128(ou, _mm_set1_epi32( 0x01FF << 22));
+        __m128i ou_inf = _mm_or_si128(ou, _mm_set1_epi32( 0x00FF << 23));
+
+        // blend in nans
+        ou = sse2_blendv(ou, ou_nan, mask);
+
+        // blend in infinities
+        mask = _mm_cmpeq_epi32( _mm_castps_si128(o), _mm_castps_si128(was_infnan));
+        o  = _mm_castsi128_ps(sse2_blendv(ou, ou_inf, mask));
+    }
+
+    return  _mm_or_ps(o, sign);
+}
+
+#endif
 
 int main(int argc, char *argv[])
 {
@@ -81,40 +162,77 @@ int main(int argc, char *argv[])
     CPUInfo info = {0};
     get_cpu_info(&info);
     printf("CPU: %s %s %s\n", CPU_ARCH, info.name, info.extensions);
-
     if (!(info.flags & X86_CPU_FLAG_F16C)) {
-        printf("** CPU does not support f16c instruction, skipping test **\n");
-        return 0;
+        printf("** CPU does not support f16c instruction**\n");
     }
 #else
     printf("CPU: %s %s\n", CPU_ARCH, get_cpu_model_name());
 #endif
 
-    union {
-        float f;
-        uint32_t i;
-    }a;
-
-    union {
-        float f;
-        uint32_t i;
-    }b;
+    int_float a;
+    int_float b;
+    uint64_t freq, start;
+    double elapse;
 
     ff_init_half2float_tables(&h2f_table);
 
-    uint64_t freq = get_timer_frequency();
-    uint64_t start = get_timer();
+    freq = get_timer_frequency();
+    start = get_timer();
 
-    for (int i = 0; i <= UINT16_MAX; i++) {
-        a.f = f16_to_f32_hw(i);
-        b.i = table_half2float(i, &h2f_table);
+    for (int i = 0; i <= UINT16_MAX-4; i++) {
+        a.u = f16_to_f32_table[i];
+        b.u = table_half2float(i, &h2f_table);
 
-        if (a.i != b.i) {
-            printf("%05d 0x%08X != 0x%08X %f\n", i, a.i, b.i, a.f);
+        if (a.u != b.u) {
+            printf("%05d 0x%08X != 0x%08X %f %f\n", i, a.u, b.u, a.f, b.f);
+            // printf("0x%08X\n", a.i - b.i);
         }
 
     }
-    double elapse = (double)((get_timer() - start)) / (double)freq;
-    printf("half2float complete in %f secs\n", elapse);
+    elapse = (double)((get_timer() - start)) / (double)freq;
+    printf("table_half2float complete in %f secs\n", elapse);
+
+
+    freq = get_timer_frequency();
+    start = get_timer();
+
+    for (int i = 0; i <= UINT16_MAX-4; i++) {
+        a.u = f16_to_f32_table[i];
+        b.f = half_to_float_ryg(i);
+
+        if (a.u != b.u) {
+            printf("%05d 0x%08X != 0x%08X %f %f\n", i, a.u, b.u, a.f, b.f);
+            // printf("0x%08X\n", a.i - b.i);
+        }
+
+    }
+    elapse = (double)((get_timer() - start)) / (double)freq;
+    printf("half_to_float_ryg complete in %f secs\n", elapse);
+
+#if defined(ARCH_X86)
+    freq = get_timer_frequency();
+    start = get_timer();
+
+        // a.f = f16_to_f32_hw(i);
+    for (int i = 0; i <= UINT16_MAX-4; i++) {
+        // a.u = f16_to_f32_table[i];
+        float result[4];
+        __m128i v = _mm_set_epi16(0, 1, 2, 3, i+3, i+2, i+1, i);
+        __m128 r = sse2_cvtph_ps(v);
+        _mm_storeu_ps(result, r);
+
+        for (int j = 0; j < 4; j++) {
+            b.f = result[j];
+            a.u = f16_to_f32_table[i+j];
+            if (a.u != b.u) {
+                printf("%05d 0x%08X != 0x%08X %f %f\n", i, a.u, b.u, a.f, b.f);
+                // printf("0x%08X\n", a.i - b.i);
+            }
+        }
+    }
+    elapse = (double)((get_timer() - start)) / (double)freq;
+    printf("sse2_cvtph_ps complete in %f secs\n", elapse);
+#endif
+
     return 0;
 }

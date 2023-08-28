@@ -36,6 +36,9 @@ static inline __m128i cvtps_ph_sse2(__m128 a, int imm8 /*unused always _MM_FROUN
     __m128i x_sgn = _mm_and_si128(x, _mm_set1_epi32(0x80000000u));
     __m128i x_exp = _mm_and_si128(x, _mm_set1_epi32(0x7f800000u));
 
+    __m128 magic1 = _mm_castsi128_ps(_mm_set1_epi32(0x77800000u)); // 0x1.0p+112f
+    __m128 magic2 = _mm_castsi128_ps(_mm_set1_epi32(0x08800000u)); // 0x1.0p-110f
+
     // sse2 doesn't have _mm_max_epu32, but _mm_max_ps works
     __m128i exp_max = _mm_set1_epi32(0x38800000u);
     x_exp = _mm_castps_si128(_mm_max_ps(_mm_castsi128_ps(x_exp), _mm_castsi128_ps(exp_max))); // max(e, -14)
@@ -46,7 +49,7 @@ static inline __m128i cvtps_ph_sse2(__m128 a, int imm8 /*unused always _MM_FROUN
     __m128 magicf = _mm_castsi128_ps(x_exp);
 
     // If 15 < e then inf, otherwise e += 2
-    f = _mm_mul_ps(_mm_mul_ps(f, _mm_set1_ps(0x1.0p+112f)), _mm_set1_ps(0x1.0p-110f));
+    f = _mm_mul_ps(_mm_mul_ps(f, magic1), magic2);
     f = _mm_add_ps(f, magicf);
 
     __m128i u = _mm_castps_si128(f);

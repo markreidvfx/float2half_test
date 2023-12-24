@@ -3,6 +3,8 @@
 #include <stdint.h>
 #include <assert.h>
 
+#include "common.h"
+
 #include "platform_info.h"
 
 #include <float.h>
@@ -30,11 +32,6 @@
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
 
-typedef union {
-        uint32_t i;
-        float    f;
-} int_float;
-
 
 typedef struct F16Test {
     const char *name;
@@ -60,7 +57,7 @@ const static F16Test f16_tests[] =
 #endif
 };
 
-#define ARRAY_SIZE(a) (sizeof(a)/sizeof((a)[0]))
+
 #define TEST_COUNT ARRAY_SIZE(f16_tests)
 
 #define PRINT_ERROR_RESULT(name, count, total) \
@@ -84,11 +81,11 @@ void test_hardware_accuracy(FILE *f)
 
     // test every possible float32 value
     for (uint64_t i = 0; i <= UINT32_MAX; i++) {
-        value.i = (uint32_t)i;
+        value.u = (uint32_t)i;
 
         uint16_t r0 = f32_to_f16_hw(value.f);
 
-        for (int j = 1; j < TEST_COUNT; j++) {
+        for (size_t j = 1; j < TEST_COUNT; j++) {
             uint16_t r1 = f16_tests[j].f32_to_f16(value.f);
 
             // check if value exactly matches hardware
@@ -112,7 +109,7 @@ void test_hardware_accuracy(FILE *f)
 
                 nan_error[j] += !((r1 & 0x7FFF) > 0x7C00);
 
-            } else if ((value.i & 0x7FFFFFFF) > 0x477fefff) {
+            } else if ((value.u & 0x7FFFFFFF) > 0x477fefff) {
                 // value should be +inf/-inf
 
                 // float v = f16_to_f32_hw(r0);
@@ -146,75 +143,37 @@ void test_hardware_accuracy(FILE *f)
     printf("\rnormal and denormal value matches hardware, out of %u:\n", half_total);
     fprintf(f, "\nerror_test,normal and denormal value matches hardware\nname,error,total\n");
 
-    for (int i = 1; i < TEST_COUNT; i++) {
+    for (size_t i = 1; i < TEST_COUNT; i++) {
         PRINT_ERROR_RESULT(f16_tests[i].name, half_error[i], half_total);
     }
 
     printf("\nnan value exactly matches hardware, out of %u:\n", nan_total);
     fprintf(f, "\nerror_test,nan value exactly matches hardware\nname,error,total\n");
 
-    for (int i = 1; i < TEST_COUNT; i++) {
+    for (size_t i = 1; i < TEST_COUNT; i++) {
         PRINT_ERROR_RESULT(f16_tests[i].name, nan_exact_error[i], nan_total);
     }
 
     printf("\nnan is a nan value but might not match hardware, out of %u:\n", nan_total);
     fprintf(f, "\nerror_test,nan is a nan value but might not match hardware\nname,error,total\n");
 
-    for (int i = 1; i < TEST_COUNT; i++) {
+    for (size_t i = 1; i < TEST_COUNT; i++) {
         PRINT_ERROR_RESULT(f16_tests[i].name, nan_error[i], nan_total);
     }
 
     printf("\n+/-inf value matches hardware, out of %u:\n", inf_total);
     fprintf(f, "\nerror_test,+/-inf value matches hardware\nname,error,total\n");
 
-    for (int i = 1; i < TEST_COUNT; i++) {
+    for (size_t i = 1; i < TEST_COUNT; i++) {
         PRINT_ERROR_RESULT(f16_tests[i].name, inf_error[i], inf_total);
     }
 
     printf("\ntotal exact hardware match:\n");
     fprintf(f, "\nerror_test,total exact hardware match\nname,error,total\n");
 
-    for (int i = 1; i < TEST_COUNT; i++) {
+    for (size_t i = 1; i < TEST_COUNT; i++) {
         PRINT_ERROR_RESULT(f16_tests[i].name, full_error[i], UINT32_MAX);
     }
-}
-
-uint32_t rand_uint32(void)
-{
-  return  ((0x7fff & rand()) << 30) | ((0x7fff & rand()) << 15) | (0x7fff & rand());
-}
-
-int rand_uint32_real()
-{
-    int_float v;
-    for (;;) {
-        v.i = rand_uint32();
-
-        if ((v.i &= 0x7FFFFFFF) <= 0x477fefff) {
-            // uint16_t r0 = f32_to_f16_hw(v.f);
-            // float f = f16_to_f32_hw(r0);
-            // assert(!(isnan(f) || isinf(f)));
-            return v.i;
-        }
-    }
-}
-
-void randomize_buffer(uint32_t *data, size_t size, int real_only)
-{
-    // fill up buffer with random data
-    for (int i =0; i < size; i++) {
-        if (real_only)
-            data[i] = rand_uint32_real();
-        else
-            data[i] = rand_uint32();
-
-        // printf("0x%08x\n", data[i]);
-        if ((i % 20000000) == 0){
-            printf("\rrandomizing buffers: %4.1f%%", 100.0 * i/(double)size);
-            fflush(stdout);
-        }
-    }
-    printf("\r");
 }
 
 #define TIME_FUNC(name, func, buffer_size, runs)                            \
@@ -222,7 +181,7 @@ void randomize_buffer(uint32_t *data, size_t size, int real_only)
     max_value = -INFINITY;                                                  \
     average = 0.0;                                                          \
     ptr = data;                                                             \
-    for (int j = 0; j < runs; j++) {                                        \
+    for (size_t j = 0; j < runs; j++) {                                        \
         start = get_timer();                                                \
         func(ptr, result, buffer_size);                                     \
         elapse = (double)((get_timer() - start)) / (double)freq;            \
@@ -237,8 +196,6 @@ void randomize_buffer(uint32_t *data, size_t size, int real_only)
 
 int main(int argc, char *argv[])
 {
-    uint16_t r0, r1;
-    int_float value;
     uint64_t freq = get_timer_frequency();
     uint64_t start;
     double elapse;
@@ -303,11 +260,11 @@ int main(int argc, char *argv[])
 
     srand(time(NULL));
     printf("\r\nruns: %d, buffer size: %d, random f32 <= HALF_MAX\n\n", TEST_RUNS, BUFFER_SIZE);
-    randomize_buffer(data, BUFFER_SIZE * TEST_RUNS, 1);
+    randomize_buffer_u32(data, BUFFER_SIZE * TEST_RUNS, 1);
 
     printf("%-20s :      min      avg     max\n", "name");
     fprintf(f, "\nperf_test,runs: %d buffer size: %d %s,\n%s,%s,%s,%s\n", TEST_RUNS, BUFFER_SIZE,"random f32 <= HALF_MAX", "name", "min", "avg", "max");
-    for (int i = first; i < TEST_COUNT; i++) {
+    for (size_t i = first; i < TEST_COUNT; i++) {
         TIME_FUNC(f16_tests[i].name, f16_tests[i].f32_to_f16_buffer, BUFFER_SIZE, TEST_RUNS);
     }
 
@@ -315,13 +272,12 @@ int main(int argc, char *argv[])
 
     srand(time(NULL));
     printf("\r\nruns: %d, buffer size: %d, random f32 full +inf+nan\n\n", TEST_RUNS, BUFFER_SIZE);
-    randomize_buffer(data, BUFFER_SIZE * TEST_RUNS, 0);
-
+    randomize_buffer_u32(data, BUFFER_SIZE * TEST_RUNS, 0);
 
 
     printf("%-20s :      min      avg     max\n", "name");
     fprintf(f, "\nperf_test,runs: %d buffer size: %d %s,\n%s,%s,%s,%s\n", TEST_RUNS, BUFFER_SIZE,"random f32 full +inf+nan", "name", "min", "avg", "max");
-    for (int i = first; i < TEST_COUNT; i++) {
+    for (size_t i = first; i < TEST_COUNT; i++) {
         TIME_FUNC(f16_tests[i].name, f16_tests[i].f32_to_f16_buffer, BUFFER_SIZE, TEST_RUNS);
     }
 

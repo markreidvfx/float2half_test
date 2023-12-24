@@ -1,5 +1,6 @@
 
 set(SOURCES
+    common.c
     platform_info.c
     hardware/hardware.c
     table/table.c

@@ -6,6 +6,7 @@
 #include <float.h>
 #include <time.h>
 
+#include "common.h"
 #include "platform_info.h"
 #include "hardware/hardware.h"
 
@@ -15,14 +16,6 @@
 #endif
 
 #include "half2float_table.h"
-
-
-typedef union
-{
-    uint32_t u;
-    float f;
-} int_float;
-
 
 typedef struct Half2FloatTables {
     uint32_t mantissatable[3072];
@@ -75,8 +68,6 @@ void ff_init_half2float_tables(Half2FloatTables *t)
     t->offsettable[32] = 0;
     t->offsettable[63] = 2048;
 }
-
-
 
 static inline uint32_t table_half2float(uint16_t h, const Half2FloatTables *t)
 {

@@ -84,6 +84,9 @@ void f32_to_f16_buffer_hw(uint32_t *data, uint16_t *result, int data_size)
     }
 }
 
+
+
+
 #else
 void f32_to_f16_buffer_hw(uint32_t *data, uint16_t *result, int data_size)
 {
@@ -134,4 +137,15 @@ void f32_to_f16_buffer_hw(uint32_t *data, uint16_t *result, int data_size)
     }
 #endif
 }
+
 #endif
+
+void f16_to_f32_buffer_hw(uint16_t *data, uint32_t *result, int data_size)
+{
+    int_float value;
+
+    for (int i =0; i < data_size; i++) {
+        value.f = f16_to_f32_hw(data[i]);
+        result[i] = value.i;
+    }
+}

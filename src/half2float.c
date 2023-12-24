@@ -5,10 +5,13 @@
 
 #include <float.h>
 #include <time.h>
+#include <math.h>
 
 #include "common.h"
 #include "platform_info.h"
 #include "hardware/hardware.h"
+#include "table/table.h"
+#include "ryg/ryg.h"
 
 #if defined(ARCH_X86)
 #include "x86_cpu_info.h"
@@ -16,87 +19,6 @@
 #endif
 
 #include "half2float_table.h"
-
-typedef struct Half2FloatTables {
-    uint32_t mantissatable[3072];
-    uint32_t exponenttable[64];
-    uint16_t offsettable[64];
-} Half2FloatTables;
-
-static Half2FloatTables h2f_table;
-
-static uint32_t convertmantissa(uint32_t i)
-{
-    int32_t m = i << 13; // Zero pad mantissa bits
-    int32_t e = 0; // Zero exponent
-
-    while (!(m & 0x00800000)) { // While not normalized
-        e -= 0x00800000; // Decrement exponent (1<<23)
-        m <<= 1; // Shift mantissa
-    }
-
-    m &= ~0x00800000; // Clear leading 1 bit
-    e +=  0x38800000; // Adjust bias ((127-14)<<23)
-
-    return m | e; // Return combined number
-}
-
-void ff_init_half2float_tables(Half2FloatTables *t)
-{
-    t->mantissatable[0] = 0;
-    for (int i = 1; i < 1024; i++)
-        t->mantissatable[i] = convertmantissa(i);
-    for (int i = 1024; i < 2048; i++)
-        t->mantissatable[i] = 0x38000000UL + ((i - 1024) << 13UL);
-    for (int i = 2048; i < 3072; i++)
-        t->mantissatable[i] = t->mantissatable[i - 1024] | 0x400000UL;
-    t->mantissatable[2048] = t->mantissatable[1024];
-
-    t->exponenttable[0] = 0;
-    for (int i = 1; i < 31; i++)
-        t->exponenttable[i] = i << 23;
-    for (int i = 33; i < 63; i++)
-        t->exponenttable[i] = 0x80000000UL + ((i - 32) << 23UL);
-    t->exponenttable[31]= 0x47800000UL;
-    t->exponenttable[32]= 0x80000000UL;
-    t->exponenttable[63]= 0xC7800000UL;
-
-    t->offsettable[0] = 0;
-    for (int i = 1; i < 64; i++)
-        t->offsettable[i] = 1024;
-    t->offsettable[31] = 2048;
-    t->offsettable[32] = 0;
-    t->offsettable[63] = 2048;
-}
-
-static inline uint32_t table_half2float(uint16_t h, const Half2FloatTables *t)
-{
-    uint32_t f;
-    f = t->mantissatable[t->offsettable[h >> 10] + (h & 0x3ff)] + t->exponenttable[h >> 10];
-    return f;
-}
-
-// https://fgiesen.wordpress.com/2012/03/28/half-to-float-done-quic/
-static float half_to_float_ryg(uint16_t h)
-{
-    static const int_float magic = { (254 - 15) << 23 };
-    static const int_float was_infnan = { (127 + 16) << 23 };
-    int_float o;
-
-    o.u = (h & 0x7fff) << 13;     // exponent/mantissa bits
-    o.f *= magic.f;               // exponent adjust
-    if (o.f >= was_infnan.f) {    // make sure Inf/NaN survive
-        if (o.u == was_infnan.u)
-            // was ininity
-            o.u |= 0x00FF << 23;
-        else {
-            // was nan, match hardware nan
-            o.u |= 0x01FF << 22;
-        }
-    }
-    o.u |= (h & 0x8000) << 16;    // sign bit
-    return o.f;
-}
 
 #if defined(ARCH_X86)
 
@@ -145,6 +67,60 @@ static inline __m128 sse2_cvtph_ps(__m128i a)
 
 #endif
 
+void f16_to_f32_buffer_static_table(uint16_t *data, uint32_t *result, int data_size)
+{
+    for (int i =0; i < data_size; i++) {
+        result[i] = f16_to_f32_static_table[data[i]];
+    }
+}
+
+
+typedef struct F16Test {
+    const char *name;
+    float (*f16_to_f32)(uint16_t h);
+    void (*f16_to_f32_buffer)(uint16_t *data, uint32_t *result, int data_size);
+} F16Test;
+
+const static F16Test f16_tests[] =
+{
+    {"hardware",            f16_to_f32_hw,                 f16_to_f32_buffer_hw },
+    {"static_table",        NULL,                          f16_to_f32_buffer_static_table },
+    {"table",               f16_to_f32_table,              f16_to_f32_buffer_table },
+    {"ryg",                 f16_to_f32_ryg,                f16_to_f32_buffer_ryg },
+};
+
+#define TEST_COUNT ARRAY_SIZE(f16_tests)
+
+int validate(uint16_t *src, uint32_t *result, size_t size)
+{
+    for (size_t i = 0;  i < size; i++) {
+        uint32_t t = f16_to_f32_static_table[src[i]];
+        if (result[i] != t) {
+            printf("0x%08X != 0x%08X\n", result[i], t);
+            return 1;
+        }
+    }
+    return 0;
+}
+
+#define TIME_FUNC(name, func, buffer_size, runs)                            \
+    min_value = INFINITY;                                                   \
+    max_value = -INFINITY;                                                  \
+    average = 0.0;                                                          \
+    ptr = data;                                                             \
+    for (size_t j = 0; j < runs; j++) {                                     \
+        start = get_timer();                                                \
+        func(ptr, result, buffer_size);                                     \
+        elapse = (double)((get_timer() - start)) / (double)freq;            \
+        min_value = MIN(min_value, elapse);                                 \
+        max_value = MAX(max_value, elapse);                                 \
+        average += elapse * 1.0 / (double)runs;                             \
+        assert(!validate(ptr, result, buffer_size));                        \
+        ptr += buffer_size;                                                 \
+    }                                                                       \
+                                                                            \
+    printf("%-20s : %f %f %f secs\n", name, min_value, average, max_value);
+
 int main(int argc, char *argv[])
 {
 
@@ -164,15 +140,19 @@ int main(int argc, char *argv[])
     int_float b;
     uint64_t freq, start;
     double elapse;
+    double average;
+    double min_value;
+    double max_value;
+    uint16_t *ptr;
 
-    ff_init_half2float_tables(&h2f_table);
+    init_tables();
 
     freq = get_timer_frequency();
     start = get_timer();
 
     for (int i = 0; i <= UINT16_MAX-4; i++) {
-        a.u = f16_to_f32_table[i];
-        b.u = table_half2float(i, &h2f_table);
+        a.u = f16_to_f32_static_table[i];
+        b.f = f16_to_f32_table(i);
 
         if (a.u != b.u) {
             printf("%05d 0x%08X != 0x%08X %f %f\n", i, a.u, b.u, a.f, b.f);
@@ -188,8 +168,10 @@ int main(int argc, char *argv[])
     start = get_timer();
 
     for (int i = 0; i <= UINT16_MAX-4; i++) {
-        a.u = f16_to_f32_table[i];
-        b.f = half_to_float_ryg(i);
+        a.u = f16_to_f32_static_table[i];
+        b.f = f16_to_f32_ryg(i);
+
+        // printf("0x%04x %f\n", i &  0x7FFF, a.f);
 
         if (a.u != b.u) {
             printf("%05d 0x%08X != 0x%08X %f %f\n", i, a.u, b.u, a.f, b.f);
@@ -199,6 +181,28 @@ int main(int argc, char *argv[])
     }
     elapse = (double)((get_timer() - start)) / (double)freq;
     printf("half_to_float_ryg complete in %f secs\n", elapse);
+
+    uint16_t *data = (uint16_t*) malloc(sizeof(uint16_t) * BUFFER_SIZE * TEST_RUNS);
+    uint32_t *result = (uint32_t*) malloc(sizeof(uint32_t) * BUFFER_SIZE * TEST_RUNS);
+
+    srand(time(NULL));
+    printf("\r\nruns: %d, buffer size: %d, random f16 <= HALF_MAX\n\n", TEST_RUNS, BUFFER_SIZE);
+    randomize_buffer_u16(data, BUFFER_SIZE * TEST_RUNS, 1);
+
+    printf("%-20s :      min      avg     max\n", "name");
+    for (size_t i = 0; i < TEST_COUNT; i++) {
+        TIME_FUNC(f16_tests[i].name, f16_tests[i].f16_to_f32_buffer, BUFFER_SIZE, TEST_RUNS);
+    }
+    fflush(stdout);
+
+    srand(time(NULL));
+    printf("\r\nruns: %d, buffer size: %d, random f16 full +inf+nan\n\n", TEST_RUNS, BUFFER_SIZE);
+    randomize_buffer_u16(data, BUFFER_SIZE * TEST_RUNS, 0);
+
+    printf("%-20s :      min      avg     max\n", "name");
+    for (size_t i = 0; i < TEST_COUNT; i++) {
+        TIME_FUNC(f16_tests[i].name, f16_tests[i].f16_to_f32_buffer, BUFFER_SIZE, TEST_RUNS);
+    }
 
 #if defined(ARCH_X86)
     freq = get_timer_frequency();

@@ -242,11 +242,9 @@ int main(int argc, char *argv[])
     fprintf(f, "%s,%s\n", get_platform_name(), COMPILER_NAME);
     printf("csv file: %s\n", csv_path);
 
-    init_table();
+    init_tables();
     init_table_round();
 
-#define TEST_RUNS 50
-#define BUFFER_SIZE (1920*1080*4)
 
 #if 1
     // init_test_data

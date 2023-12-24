@@ -18,7 +18,7 @@ static inline uint16_t float_to_half_fast3_rtne(uint32_t x) {
       // is round-to-nearest-even this just works.
       union { uint32_t u; float f; } f, denorm_magic;
       f.u = x;
-      denorm_magic.u = ((127 - 14) + (23 - 10)) << 23;
+      denorm_magic.u = ((127u - 14u) + (23u - 10u)) << 23;
 
       f.f += denorm_magic.f;
 
@@ -29,7 +29,7 @@ static inline uint16_t float_to_half_fast3_rtne(uint32_t x) {
       uint32_t mant_odd = (x >> 13) & 1; // resulting mantissa is odd
 
       // update exponent, rounding bias part 1
-      x += ((15 - 127) << 23) + 0xfff;
+      x += ((15u - 127u) << 23) + 0xfff;
       // rounding bias part 2
       x += mant_odd;
       // take the bits!
@@ -41,7 +41,7 @@ static inline uint16_t float_to_half_fast3_rtne(uint32_t x) {
 
 
 typedef union {
-        uint32_t i;
+        uint32_t u;
         float    f;
 } int_float;
 
@@ -49,14 +49,51 @@ uint16_t f32_to_f16_ryg(float f)
 {
     int_float value;
     value.f = f;
-    return float_to_half_fast3_rtne(value.i);
+    return float_to_half_fast3_rtne(value.u);
 }
 
 void f32_to_f16_buffer_ryg(uint32_t *data, uint16_t *result, int data_size)
 {
     int_float value;
     for (int i =0; i < data_size; i++) {
-        value.i = data[i];
-        result[i] = float_to_half_fast3_rtne(value.i);
+        value.u = data[i];
+        result[i] = float_to_half_fast3_rtne(value.u);
+    }
+}
+
+
+// https://fgiesen.wordpress.com/2012/03/28/half-to-float-done-quic/
+static inline float half_to_float_ryg(uint16_t h)
+{
+    static const int_float magic = { (254u - 15u) << 23 };
+    static const int_float was_infnan = { (127u + 16u) << 23 };
+    int_float o;
+
+    o.u = (h & 0x7fff) << 13;     // exponent/mantissa bits
+    o.f *= magic.f;               // exponent adjust
+    if (o.f >= was_infnan.f) {    // make sure Inf/NaN survive
+        if (o.u == was_infnan.u)
+            // was ininity
+            o.u |= 0x00FF << 23;
+        else {
+            // was nan, match hardware nan
+            o.u |= 0x01FF << 22;
+        }
+    }
+    o.u |= (h & 0x8000) << 16;    // sign bit
+    return o.f;
+}
+
+float f16_to_f32_ryg(uint16_t h)
+{
+  return half_to_float_ryg(h);
+}
+
+void f16_to_f32_buffer_ryg(uint16_t *data, uint32_t *result, int data_size)
+{
+    int_float value;
+    for (int i =0; i < data_size; i++) {
+        value.f = half_to_float_ryg(data[i]);
+        result[i] = value.u;
     }
 }

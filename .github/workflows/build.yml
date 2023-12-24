@@ -2,9 +2,9 @@ name: Build
 
 on:
   push:
-    branches: [ "main", "cmake"]
+    branches: [ "main", "cmake", dev]
   pull_request:
-    branches: [ "main", "cmake" ]
+    branches: [ "main", "cmake", dev ]
 
 jobs:
   build:

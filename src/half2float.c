@@ -218,7 +218,7 @@ int main(int argc, char *argv[])
 
         for (int j = 0; j < 4; j++) {
             b.f = result[j];
-            a.u = f16_to_f32_table[i+j];
+            a.u = f16_to_f32_static_table[i+j];
             if (a.u != b.u) {
                 printf("%05d 0x%08X != 0x%08X %f %f\n", i, a.u, b.u, a.f, b.f);
                 // printf("0x%08X\n", a.i - b.i);

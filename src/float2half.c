@@ -29,10 +29,6 @@
 #include "x86_cpu_info.h"
 #endif
 
-#define MIN(a,b) (((a)<(b))?(a):(b))
-#define MAX(a,b) (((a)>(b))?(a):(b))
-
-
 typedef struct F16Test {
     const char *name;
     uint16_t (*f32_to_f16)(float v);

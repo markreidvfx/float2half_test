@@ -6,6 +6,9 @@
 #define TEST_RUNS 50
 #define BUFFER_SIZE (1920*1080*4)
 
+#define MIN(a,b) (((a)<(b))?(a):(b))
+#define MAX(a,b) (((a)>(b))?(a):(b))
+
 typedef union {
         uint32_t u;
         float    f;

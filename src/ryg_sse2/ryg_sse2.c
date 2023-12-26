@@ -1,17 +1,26 @@
 #include "ryg_sse2.h"
 #include <immintrin.h>
 
+// if your data doesn't contain many inf/nan values this adds a small optimization.
+// if data containing many inf/nan values don't use this
+#define USE_MASK_CHECK 1
+
+#if USE_MASK_CHECK
+#define MASK_CHECK(m) _mm_movemask_epi8(m)
+#else
+#define MASK_CHECK(m) 1
+#endif
+
 static inline __m128i sse2_blendv(__m128i a, __m128i b, __m128i mask)
 {
     return _mm_xor_si128(_mm_and_si128(_mm_xor_si128(a, b), mask), a);
 }
 static inline __m128 sse2_cvtph_ps(__m128i a)
 {
+    __m128i infnan_mask, inf_mask, ou, ou_nan, ou_inf;
     __m128 magic      = _mm_castsi128_ps(_mm_set1_epi32((254 - 15) << 23));
     __m128 was_infnan = _mm_castsi128_ps(_mm_set1_epi32((127 + 16) << 23));
-    __m128 sign;
-    __m128 o;
-
+    __m128 sign, o;
     // the values to unpack are in the lower 64 bits
     // | 0 1 | 2 3 | 4 5 | 6 7 | 8 9 | 10 11 | 12 13 | 14 15
     // | 0 1 | 0 1 | 2 3 | 2 3 | 4 5 |  4  5 | 6   7 | 6   7
@@ -27,18 +36,19 @@ static inline __m128 sse2_cvtph_ps(__m128i a)
     o = _mm_mul_ps(o, magic);
 
     // blend in inf/nan values only if present
-    __m128i mask = _mm_castps_si128(_mm_cmpge_ps(o, was_infnan));
+    infnan_mask = _mm_castps_si128(_mm_cmpge_ps(o, was_infnan));
+    if (MASK_CHECK(infnan_mask)) {
+        ou =  _mm_castps_si128(o);
+        ou_nan = _mm_or_si128(ou, _mm_set1_epi32( 0x01FF << 22));
+        ou_inf = _mm_or_si128(ou, _mm_set1_epi32( 0x00FF << 23));
 
-    __m128i ou =  _mm_castps_si128(o);
-    __m128i ou_nan = _mm_or_si128(ou, _mm_set1_epi32( 0x01FF << 22));
-    __m128i ou_inf = _mm_or_si128(ou, _mm_set1_epi32( 0x00FF << 23));
+        // blend in nans
+        ou = sse2_blendv(ou, ou_nan, infnan_mask);
 
-    // blend in nans
-    ou = sse2_blendv(ou, ou_nan, mask);
-
-    // blend in infinities
-    mask = _mm_cmpeq_epi32( _mm_castps_si128(o), _mm_castps_si128(was_infnan));
-    o  = _mm_castsi128_ps(sse2_blendv(ou, ou_inf, mask));
+        // blend in infinities
+        inf_mask = _mm_cmpeq_epi32( _mm_castps_si128(o), _mm_castps_si128(was_infnan));
+        o  = _mm_castsi128_ps(sse2_blendv(ou, ou_inf, inf_mask));
+    }
 
     return  _mm_or_ps(o, sign);
 }

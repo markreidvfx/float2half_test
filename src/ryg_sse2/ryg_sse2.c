@@ -28,18 +28,17 @@ static inline __m128 sse2_cvtph_ps(__m128i a)
 
     // blend in inf/nan values only if present
     __m128i mask = _mm_castps_si128(_mm_cmpge_ps(o, was_infnan));
-    if (_mm_movemask_epi8(mask)) {
-        __m128i ou =  _mm_castps_si128(o);
-        __m128i ou_nan = _mm_or_si128(ou, _mm_set1_epi32( 0x01FF << 22));
-        __m128i ou_inf = _mm_or_si128(ou, _mm_set1_epi32( 0x00FF << 23));
 
-        // blend in nans
-        ou = sse2_blendv(ou, ou_nan, mask);
+    __m128i ou =  _mm_castps_si128(o);
+    __m128i ou_nan = _mm_or_si128(ou, _mm_set1_epi32( 0x01FF << 22));
+    __m128i ou_inf = _mm_or_si128(ou, _mm_set1_epi32( 0x00FF << 23));
 
-        // blend in infinities
-        mask = _mm_cmpeq_epi32( _mm_castps_si128(o), _mm_castps_si128(was_infnan));
-        o  = _mm_castsi128_ps(sse2_blendv(ou, ou_inf, mask));
-    }
+    // blend in nans
+    ou = sse2_blendv(ou, ou_nan, mask);
+
+    // blend in infinities
+    mask = _mm_cmpeq_epi32( _mm_castps_si128(o), _mm_castps_si128(was_infnan));
+    o  = _mm_castsi128_ps(sse2_blendv(ou, ou_inf, mask));
 
     return  _mm_or_ps(o, sign);
 }

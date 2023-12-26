@@ -23,8 +23,8 @@ static uint16_t rand_u16_real()
         uint16_t v = rand_u16();
         if ((v & 0x7FFF) <= 0x7BFF) {
 
-            float f = f16_to_f32_hw(v);
-            assert(!(isnan(f) || isinf(f)));
+            // float f = f16_to_f32_hw(v);
+            // assert(!(isnan(f) || isinf(f)));
             return v;
         }
     }

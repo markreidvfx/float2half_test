@@ -19,6 +19,7 @@ if ( (${ARCH} STREQUAL "x86" ) OR (${ARCH} STREQUAL "x86_64") )
     list(APPEND SOURCES
         x86_cpu_info.c
         maratyszcza_sse2/maratyszcza_sse2.c
+        ryg_sse2/ryg_sse2.c
     )
 
     # MSVC does not need a -mf16c compile flag

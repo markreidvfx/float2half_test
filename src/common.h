@@ -1,3 +1,6 @@
+#ifndef COMMON_H
+#define COMMON_H
+
 #include <stdint.h>
 #include <stddef.h>
 
@@ -16,3 +19,5 @@ typedef union {
 
 void randomize_buffer_u32(uint32_t *data, size_t size, int real_only);
 void randomize_buffer_u16(uint16_t *data, size_t size, int real_only);
+
+#endif // COMMON_H

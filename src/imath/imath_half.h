@@ -186,6 +186,7 @@
 //-------------------------------------------------------------------------
 
 #define IMATH_UNLIKELY(a) a
+#define IMATH_LIKELY(a) a
 
 #if (defined _WIN32 || defined _WIN64) && defined _MSC_VER
 
@@ -305,6 +306,72 @@ imath_float_to_half (float f)
     ret |= (m >> shift);
     if (r > 0x80000000 || (r == 0x80000000 && (ret & 0x1) != 0)) ++ret;
     return ret;
+}
+
+static inline float
+imath_half_to_float (imath_half_bits_t h)
+{
+    imath_half_uif_t v;
+    // this code would be clearer, although it does appear to be faster
+    // (1.06 vs 1.08 ns/call) to avoid the constants and just do 4
+    // shifts.
+    //
+    uint32_t hexpmant = ((uint32_t) (h) << 17) >> 4;
+    v.i               = ((uint32_t) (h >> 15)) << 31;
+
+    // the likely really does help if most of your numbers are "normal" half numbers
+    if (IMATH_LIKELY ((hexpmant >= 0x00800000)))
+    {
+        v.i |= hexpmant;
+        // either we are a normal number, in which case add in the bias difference
+        // otherwise make sure all exponent bits are set
+        if (IMATH_LIKELY ((hexpmant < 0x0f800000)))
+            v.i += 0x38000000;
+        else
+            v.i |= (hexpmant == 0x0f800000 ? 0x7f800000 : 0x7fc00000);
+            // v.i |= 0x7f800000;
+    }
+    else if (hexpmant != 0)
+    {
+        // exponent is 0 because we're denormal, don't have to extract
+        // the mantissa, can just use as is
+        //
+        //
+        // other compilers may provide count-leading-zeros primitives,
+        // but we need the community to inform us of the variants
+        uint32_t lc;
+#    if defined(_MSC_VER)
+        // The direct intrinsic for this is __lznct, but that is not supported
+        // on older x86_64 hardware or ARM. Instead uses the bsr instruction
+        // and one additional subtraction. This assumes hexpmant != 0, for 0
+        // bsr and lznct would behave differently.
+        unsigned long bsr;
+        _BitScanReverse (&bsr, hexpmant);
+        lc = (31 - bsr);
+#    elif defined(__GNUC__) || defined(__clang__)
+        lc = (uint32_t) __builtin_clz (hexpmant);
+#    else
+        lc = 0;
+        while (0 == ((hexpmant << lc) & 0x80000000))
+            ++lc;
+#    endif
+        lc -= 8;
+        // so nominally we want to remove that extra bit we shifted
+        // up, but we are going to add that bit back in, then subtract
+        // from it with the 0x38800000 - (lc << 23)....
+        //
+        // by combining, this allows us to skip the & operation (and
+        // remove a constant)
+        //
+        // hexpmant &= ~0x00800000;
+        v.i |= 0x38800000;
+        // lc is now x, where the desired exponent is then
+        // -14 - lc
+        // + 127 -> new exponent
+        v.i |= (hexpmant << lc);
+        v.i -= (lc << 23);
+    }
+    return v.f;
 }
 
 #endif // IMATH_HALF_H_

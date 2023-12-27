@@ -12,6 +12,7 @@
 #include "hardware/hardware.h"
 #include "table/table.h"
 #include "ryg/ryg.h"
+#include "imath/imath.h"
 
 #if defined(ARCH_X86)
 #include "x86_cpu_info.h"
@@ -46,6 +47,7 @@ const static F16Test f16_tests[] =
     {"hardware",            f16_to_f32_hw,                 f16_to_f32_buffer_hw },
     {"static_table",        f16_to_f32_static_table_func,  f16_to_f32_buffer_static_table },
     {"table",               f16_to_f32_table,              f16_to_f32_buffer_table },
+    {"imath",               f16_to_f32_imath,              f16_to_f32_buffer_imath },
     {"ryg",                 f16_to_f32_ryg,                f16_to_f32_buffer_ryg },
 #if defined(ARCH_X86)
     {"ryg_sse2",            f16_to_f32_ryg_sse2,           f16_to_f32_buffer_ryg_sse2 },
@@ -54,6 +56,9 @@ const static F16Test f16_tests[] =
 
 #define TEST_COUNT ARRAY_SIZE(f16_tests)
 
+#define USE_VALIDATE 1
+
+#if USE_VALIDATE
 int validate(uint16_t *src, uint32_t *result, size_t size)
 {
     for (size_t i = 0;  i < size; i++) {
@@ -65,6 +70,9 @@ int validate(uint16_t *src, uint32_t *result, size_t size)
     }
     return 0;
 }
+#else
+int validate(uint16_t *src, uint32_t *result, size_t size) { return 0;}
+#endif
 
 #define TIME_FUNC(name, func, buffer_size, runs)                            \
     min_value = INFINITY;                                                   \

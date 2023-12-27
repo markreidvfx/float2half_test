@@ -84,7 +84,15 @@ void f32_to_f16_buffer_hw(uint32_t *data, uint16_t *result, int data_size)
     }
 }
 
+void f16_to_f32_buffer_hw(uint16_t *data, uint32_t *result, int data_size)
+{
+    int_float value;
 
+    for (int i =0; i < data_size; i++) {
+        value.f = f16_to_f32_hw(data[i]);
+        result[i] = value.i;
+    }
+}
 
 
 #else
@@ -138,14 +146,35 @@ void f32_to_f16_buffer_hw(uint32_t *data, uint16_t *result, int data_size)
 #endif
 }
 
-#endif
-
 void f16_to_f32_buffer_hw(uint16_t *data, uint32_t *result, int data_size)
 {
-    int_float value;
+    int size = data_size / 4 * 4;
+    int remainder = data_size - size;
 
-    for (int i =0; i < data_size; i++) {
-        value.f = f16_to_f32_hw(data[i]);
-        result[i] = value.i;
+    for (int i = 0; i < size; i+=4) {
+        __m128i ph = _mm_loadl_epi64((const __m128i*)data);
+        __m128 p = _mm_cvtph_ps(ph);
+        _mm_storeu_si128((__m128i*)result, _mm_castps_si128(p));
+
+        data += 4;
+        result += 4;
+    }
+
+    if (remainder) {
+        uint16_t in_buf[4] = {0};
+        uint32_t out_buf[4] = {0};
+        for (int i = 0; i < remainder; i++) {
+            in_buf[i] = data[i];
+        }
+
+        __m128i ph = _mm_loadl_epi64((const __m128i*)&in_buf[0]);
+        __m128 p = _mm_cvtph_ps(ph);
+        _mm_storeu_si128((__m128i*)&out_buf[0], _mm_castps_si128(p));
+
+        for (int i = 0; i < remainder; i++) {
+            result[i] = out_buf[i];
+        }
     }
 }
+
+#endif

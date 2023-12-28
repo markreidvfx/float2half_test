@@ -60,7 +60,7 @@ const static F16Test f16_tests[] =
     printf("%-20s : %g%% \n", name,  100.0 - (100.0 * count/(double)total)); \
     fprintf(f, "%s,%f,%f\n", name, (double)count, (double)total)
 
-void test_hardware_accuracy(FILE *f)
+void test_hardware_accuracy(FILE *f, int has_hardware_f16)
 {
     int_float value;
 
@@ -75,11 +75,19 @@ void test_hardware_accuracy(FILE *f)
     uint32_t inf_total = 0;
     uint32_t half_total = 0;
 
+    if (!has_hardware_f16) {
+        printf("** cpu has no f16c instruction, verifying against f32_to_f16_no_table instead **\n\n");
+    }
+
     // test every possible float32 value
     for (uint64_t i = 0; i <= UINT32_MAX; i++) {
         value.u = (uint32_t)i;
 
-        uint16_t r0 = f32_to_f16_hw(value.f);
+        uint16_t r0;
+        if (has_hardware_f16)
+            r0 = f32_to_f16_hw(value.f);
+        else
+            r0 = f32_to_f16_no_table(value.f);
 
         for (size_t j = 1; j < TEST_COUNT; j++) {
             uint16_t r1 = f16_tests[j].f32_to_f16(value.f);
@@ -282,16 +290,13 @@ int main(int argc, char *argv[])
 
 
 #if 1
-    if (has_hardware_f16) {
-        printf("\nchecking accuracy against hardware\n\n");
-        start = get_timer();
-        test_hardware_accuracy(f);
-        elapse = (double)((get_timer() - start)) / (double)freq;
-        printf("\nhardware check in %f secs\n",  elapse);
 
-    } else {
-        printf("\nskipping hardware accuracy test\n");
-    }
+    printf("\nchecking hardware accuracy\n\n");
+    start = get_timer();
+    test_hardware_accuracy(f, has_hardware_f16);
+    elapse = (double)((get_timer() - start)) / (double)freq;
+    printf("\nhardware check in %f secs\n",  elapse);
+
 
 #endif
     fprintf(f, "\n");

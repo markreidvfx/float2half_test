@@ -33,8 +33,11 @@ static inline __m128i cvtps_ph_sse2(__m128 a, int imm8 /*unused always _MM_FROUN
 {
     __m128i x = _mm_castps_si128(a);
 
-    __m128i x_sgn = _mm_and_si128(x, _mm_set1_epi32(0x80000000u));
-    __m128i x_exp = _mm_and_si128(x, _mm_set1_epi32(0x7f800000u));
+    __m128i x_sign_mask = _mm_set1_epi32(0x80000000u);
+    __m128i x_sgn = _mm_and_si128(x, x_sign_mask);
+
+    __m128i x_exp_mask = _mm_set1_epi32(0x7f800000u);
+    __m128i x_exp = _mm_and_si128(x, x_exp_mask);
 
     __m128 magic1 = _mm_castsi128_ps(_mm_set1_epi32(0x77800000u)); // 0x1.0p+112f
     __m128 magic2 = _mm_castsi128_ps(_mm_set1_epi32(0x08800000u)); // 0x1.0p-110f
@@ -43,7 +46,7 @@ static inline __m128i cvtps_ph_sse2(__m128 a, int imm8 /*unused always _MM_FROUN
     __m128i exp_max = _mm_set1_epi32(0x38800000u);
     x_exp = _mm_castps_si128(_mm_max_ps(_mm_castsi128_ps(x_exp), _mm_castsi128_ps(exp_max))); // max(e, -14)
     x_exp = _mm_add_epi32(x_exp, _mm_set1_epi32(15u << 23)); // e += 15
-    x = _mm_and_si128(x, _mm_set1_epi32(0x7fffffffu)); // Discard sign
+    x = _mm_andnot_si128(x_sgn, x); // Discard sign
 
     __m128 f = _mm_castsi128_ps(x);
     __m128 magicf = _mm_castsi128_ps(x_exp);
@@ -57,20 +60,17 @@ static inline __m128i cvtps_ph_sse2(__m128 a, int imm8 /*unused always _MM_FROUN
     __m128i h_exp = _mm_and_si128(_mm_srli_epi32(u, 13), _mm_set1_epi32(0x7c00u));
     __m128i h_sig = _mm_and_si128(u, _mm_set1_epi32(0x0fffu));
 
-    // blend in nan values only if present
-    __m128i nan_mask = _mm_cmpgt_epi32(x, _mm_set1_epi32(0x7f800000u));
-    if (_mm_movemask_epi8(nan_mask)) {
-        __m128i nan = _mm_and_si128(_mm_srli_epi32(x, 13), _mm_set1_epi32(0x03FFu));
-        nan = _mm_or_si128(_mm_set1_epi32(0x0200u), nan);
-        h_sig = blendv_sse2(h_sig, nan, nan_mask);
-    }
+    // blend in nan values
+    __m128i nan_mask = _mm_cmpgt_epi32(x, x_exp_mask);
+    __m128i nan = _mm_and_si128(_mm_or_si128(_mm_srli_epi32(x, 13), _mm_set1_epi32(0x0200u)), _mm_set1_epi32(0x03FFu));
+    h_sig = blendv_sse2(h_sig, nan, nan_mask);
 
     __m128i ph = _mm_add_epi32(_mm_srli_epi32(x_sgn, 16),_mm_add_epi32(h_exp, h_sig));
 
     // pack u16 values into lower 8 bytes
     ph = _mm_shufflehi_epi16(ph, (1 << 6 | 1 << 4 | 2 << 2 | 0 << 0));
     ph = _mm_shufflelo_epi16(ph, (1 << 6 | 1 << 4 | 2 << 2 | 0 << 0));
-    return _mm_shuffle_epi32(ph, (3 << 6 | 3 << 4 | 2 << 2 | 0 << 0));
+    return _mm_shuffle_epi32(ph, (1 << 6 | 1 << 4 | 2 << 2 | 0 << 0));
 }
 
 

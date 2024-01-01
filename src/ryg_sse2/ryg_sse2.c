@@ -70,3 +70,123 @@ void f16_to_f32_buffer_ryg_sse2(uint16_t *data, uint32_t *result, int data_size)
         }
     }
 }
+
+static inline __m128i blendv_sse2(__m128i a, __m128i b, __m128i mask)
+{
+    return _mm_xor_si128(_mm_and_si128(_mm_xor_si128(a, b), mask), a);
+}
+
+// drop in replacement for hardware instruction
+static inline __m128i cvtps_ph_sse2(__m128 a, int imm8 /*unused always _MM_FROUND_TO_NEAREST_INT*/)
+{
+    __m128i x_sgn = _mm_and_si128(_mm_castps_si128(a), _mm_set1_epi32(0x80000000u));
+    __m128i x =  _mm_andnot_si128(x_sgn, _mm_castps_si128(a));
+    x_sgn = _mm_srli_epi32(x_sgn, 16);
+
+    __m128i infnan_mask = _mm_cmpgt_epi32(x, _mm_set1_epi32(0x47800000u - 1));
+    __m128i nan_mask = _mm_cmpgt_epi32(x, _mm_set1_epi32(0x7f800000u));
+
+    __m128i nan = _mm_and_si128(_mm_srli_epi32(x, 13), _mm_set1_epi32(0x03FFu));
+    nan = _mm_or_si128(nan, _mm_set1_epi32(0x7e00u));
+    nan = _mm_and_si128(nan, nan_mask);
+
+    __m128i inf = _mm_set1_epi32(0x7c00);
+    __m128i infnan = _mm_or_si128(inf, nan);
+
+    __m128i subnormal_mask =  _mm_cmplt_epi32(x, _mm_set1_epi32(0x38800000u));
+    __m128i denorm_magic = _mm_set1_epi32(((127u - 14u) + (23u - 10u)) << 23);
+
+    __m128i denorm = _mm_castps_si128(_mm_add_ps(_mm_castsi128_ps(denorm_magic), _mm_castsi128_ps(x)));
+    denorm = _mm_sub_epi32(denorm, denorm_magic);
+
+    __m128i mant_odd =_mm_and_si128(_mm_srli_epi32(x, 13), _mm_set1_epi32(1));
+    x = _mm_add_epi32(x, _mm_set1_epi32(((15u - 127u) << 23) + 0xfffu));
+    x = _mm_add_epi32(x, mant_odd);
+    x = _mm_srli_epi32(x , 13);
+
+    x = blendv_sse2(x, denorm, subnormal_mask);
+    x = blendv_sse2(x, infnan, infnan_mask);
+
+    x = _mm_or_si128(x_sgn, x);
+
+        // pack u16 values into lower 8 bytes
+    x = _mm_shufflehi_epi16(x, (1 << 6 | 1 << 4 | 2 << 2 | 0 << 0));
+    x = _mm_shufflelo_epi16(x, (1 << 6 | 1 << 4 | 2 << 2 | 0 << 0));
+    return _mm_shuffle_epi32(x, (1 << 6 | 1 << 4 | 2 << 2 | 0 << 0));
+}
+
+static inline uint16_t to_f16(float v)
+{
+    uint16_t result[8] = {0};
+    __m128 ps =_mm_set1_ps(v);
+    __m128i ph = cvtps_ph_sse2(ps, _MM_FROUND_TO_NEAREST_INT);
+
+    _mm_storeu_si128((__m128i*)result, ph);
+
+    return result[0];
+}
+
+uint16_t f32_to_f16_ryg_sse2(float f)
+{
+    return to_f16(f);
+}
+
+
+void f32_to_f16_buffer_ryg_sse2(uint32_t *data, uint16_t *result, int data_size)
+{
+    int size = data_size / 4 * 4;
+    int remainder = data_size - size;
+
+#if DEBUG_VERIFY
+    uint32_t *base_src = data;
+    uint16_t *base_dst = result;
+#endif
+
+    for (int i = 0; i < size; i+=4) {
+        __m128 ps = _mm_loadu_ps((float*)data);
+        __m128i ph = cvtps_ph_sse2(ps, _MM_FROUND_TO_NEAREST_INT);
+        _mm_storel_epi64((__m128i*)result, ph);
+
+        data += 4;
+        result += 4;
+    }
+
+    if (remainder) {
+        uint32_t in_buf[4] = {0};
+        uint16_t out_buf[4] = {0};
+        for (int i = 0; i < remainder; i++) {
+            in_buf[i] = data[i];
+        }
+
+        __m128 ps = _mm_loadu_ps((float*)&in_buf[0]);
+        __m128i ph = cvtps_ph_sse2(ps, _MM_FROUND_TO_NEAREST_INT);
+         _mm_storel_epi64((__m128i*)&out_buf[0], ph);
+
+        for (int i = 0; i < remainder; i++) {
+            result[i] = out_buf[i];
+        }
+    }
+
+# if DEBUG_VERIFY
+    // verify against hardware
+    for (int i = 0; i < data_size; i++) {
+        union { uint32_t u; float f; } f;
+        f.u = base_src[i];
+
+        uint16_t r = to_f16_hw(f.f);
+        uint16_t t = to_f16(f.f);
+
+        if (r != t){
+            printf("to_f16:  %d 0x%08x 0x%04x != 0x%04x\n", i, f.u, r, t);
+            assert(r == t);
+        }
+
+        t = base_dst[i];
+        if (r != t) {
+            printf("cvt:  %d 0x%08x 0x%04x != 0x%04x\n", i, f.u, r, t);
+            assert(r == t);
+        }
+    }
+#endif
+
+}

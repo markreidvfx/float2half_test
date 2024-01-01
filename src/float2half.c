@@ -26,6 +26,7 @@
 
 #if defined(ARCH_X86)
 #include "maratyszcza_sse2/maratyszcza_sse2.h"
+#include "ryg_sse2/ryg_sse2.h"
 #include "x86_cpu_info.h"
 #endif
 
@@ -46,6 +47,9 @@ const static F16Test f16_tests[] =
     {"numpy",               f32_to_f16_numpy,              f32_to_f16_buffer_numpy },
     {"tursa",               f32_to_f16_tursa,              f32_to_f16_buffer_tursa },
     {"ryg",                 f32_to_f16_ryg,                f32_to_f16_buffer_ryg },
+#if defined(ARCH_X86)
+    {"ryg_sse2",            f32_to_f16_ryg_sse2,           f32_to_f16_buffer_ryg_sse2},
+#endif
     {"maratyszcza",         f32_to_f16_maratyszcza,        f32_to_f16_buffer_maratyszcza },
     {"maratyszcza nan fix", f32_to_f16_maratyszcza_nanfix, f32_to_f16_buffer_maratyszcza_nanfix },
 #if defined(ARCH_X86)

@@ -79,35 +79,35 @@ static inline __m128i blendv_sse2(__m128i a, __m128i b, __m128i mask)
 // drop in replacement for hardware instruction
 static inline __m128i cvtps_ph_sse2(__m128 a, int imm8 /*unused always _MM_FROUND_TO_NEAREST_INT*/)
 {
+    __m128i denorm_magic = _mm_set1_epi32(((127u - 14u) + (23u - 10u)) << 23);
+
     __m128i x_sgn = _mm_and_si128(_mm_castps_si128(a), _mm_set1_epi32(0x80000000u));
     __m128i x =  _mm_andnot_si128(x_sgn, _mm_castps_si128(a));
-    x_sgn = _mm_srli_epi32(x_sgn, 16);
+    __m128i x_shift = _mm_srli_epi32(x, 13);
 
+    __m128i subnormal_mask =  _mm_cmplt_epi32(x, _mm_set1_epi32(0x38800000u));
     __m128i infnan_mask = _mm_cmpgt_epi32(x, _mm_set1_epi32(0x47800000u - 1));
     __m128i nan_mask = _mm_cmpgt_epi32(x, _mm_set1_epi32(0x7f800000u));
 
-    __m128i nan = _mm_and_si128(_mm_srli_epi32(x, 13), _mm_set1_epi32(0x03FFu));
-    nan = _mm_or_si128(nan, _mm_set1_epi32(0x7e00u));
-    nan = _mm_and_si128(nan, nan_mask);
-
-    __m128i inf = _mm_set1_epi32(0x7c00);
-    __m128i infnan = _mm_or_si128(inf, nan);
-
-    __m128i subnormal_mask =  _mm_cmplt_epi32(x, _mm_set1_epi32(0x38800000u));
-    __m128i denorm_magic = _mm_set1_epi32(((127u - 14u) + (23u - 10u)) << 23);
+    __m128i mant_odd =_mm_and_si128(x_shift, _mm_set1_epi32(1));
+    __m128i norm = _mm_add_epi32(x, _mm_set1_epi32(((15u - 127u) << 23) + 0xfffu));
+    norm = _mm_add_epi32(norm, mant_odd);
+    norm = _mm_srli_epi32(norm, 13);
 
     __m128i denorm = _mm_castps_si128(_mm_add_ps(_mm_castsi128_ps(denorm_magic), _mm_castsi128_ps(x)));
     denorm = _mm_sub_epi32(denorm, denorm_magic);
 
-    __m128i mant_odd =_mm_and_si128(_mm_srli_epi32(x, 13), _mm_set1_epi32(1));
-    x = _mm_add_epi32(x, _mm_set1_epi32(((15u - 127u) << 23) + 0xfffu));
-    x = _mm_add_epi32(x, mant_odd);
-    x = _mm_srli_epi32(x , 13);
+    __m128i nan = _mm_and_si128(x_shift, _mm_set1_epi32(0x03FFu));
+    nan = _mm_or_si128(nan, _mm_set1_epi32(0x7e00u));
+    nan = _mm_and_si128(nan, nan_mask);
+    __m128i inf = _mm_set1_epi32(0x7c00);
+    __m128i infnan = _mm_or_si128(inf, nan);
 
-    x = blendv_sse2(x, denorm, subnormal_mask);
+    x = blendv_sse2(norm, denorm, subnormal_mask);
     x = blendv_sse2(x, infnan, infnan_mask);
 
-    x = _mm_or_si128(x_sgn, x);
+    x_sgn = _mm_srli_epi32(x_sgn, 16);
+    x = _mm_or_si128(x, x_sgn);
 
         // pack u16 values into lower 8 bytes
     x = _mm_shufflehi_epi16(x, (1 << 6 | 1 << 4 | 2 << 2 | 0 << 0));

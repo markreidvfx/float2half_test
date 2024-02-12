@@ -242,8 +242,7 @@ int main(int argc, char *argv[])
     }
 #else
     printf("CPU: %s %s\n", CPU_ARCH, get_cpu_model_name());
-    if (f)
-        fprintf(f, "%s,%s\n", CPU_ARCH, get_cpu_model_name());
+    fprintf(f, "%s,%s\n", CPU_ARCH, get_cpu_model_name());
 #endif
 
     printf("%s %s\n", get_platform_name(), COMPILER_NAME);
@@ -269,7 +268,7 @@ int main(int argc, char *argv[])
     randomize_buffer_u32(data, BUFFER_SIZE * TEST_RUNS, 1);
 
     printf("%-20s :      min      avg     max\n", "name");
-    fprintf(f, "\nperf_test,runs: %d buffer size: %d %s,\n%s,%s,%s,%s\n", TEST_RUNS, BUFFER_SIZE,"random f32 <= HALF_MAX", "name", "min", "avg", "max");
+    fprintf(f, "\nperf_test,runs: %d buffer size: %d %s\n%s,%s,%s,%s\n", TEST_RUNS, BUFFER_SIZE,"random f32 <= HALF_MAX", "name", "min", "avg", "max");
     for (size_t i = first; i < TEST_COUNT; i++) {
         TIME_FUNC(f16_tests[i].name, f16_tests[i].f32_to_f16_buffer, BUFFER_SIZE, TEST_RUNS);
     }
@@ -282,7 +281,7 @@ int main(int argc, char *argv[])
 
 
     printf("%-20s :      min      avg     max\n", "name");
-    fprintf(f, "\nperf_test,runs: %d buffer size: %d %s,\n%s,%s,%s,%s\n", TEST_RUNS, BUFFER_SIZE,"random f32 full +inf+nan", "name", "min", "avg", "max");
+    fprintf(f, "\nperf_test,runs: %d buffer size: %d %s\n%s,%s,%s,%s\n", TEST_RUNS, BUFFER_SIZE,"random f32 full +inf+nan", "name", "min", "avg", "max");
     for (size_t i = first; i < TEST_COUNT; i++) {
         TIME_FUNC(f16_tests[i].name, f16_tests[i].f32_to_f16_buffer, BUFFER_SIZE, TEST_RUNS);
     }
@@ -305,5 +304,5 @@ int main(int argc, char *argv[])
 #endif
     fprintf(f, "\n");
     fclose(f);
-
+    return 0;
 }

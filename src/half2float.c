@@ -90,7 +90,9 @@ int validate(uint16_t *src, uint32_t *result, size_t size) { return 0;}
         ptr += buffer_size;                                                 \
     }                                                                       \
                                                                             \
-    printf("%-20s : %f %f %f secs\n", name, min_value, average, max_value);
+    printf("%-20s : %f %f %f secs\n", name, min_value, average, max_value); \
+    fprintf(f, "%s,%f,%f,%f\n", name, min_value, average, max_value)
+
 
 int main(int argc, char *argv[])
 {
@@ -103,18 +105,40 @@ int main(int argc, char *argv[])
     double max_value;
     uint16_t *ptr;
     int first = 0;
+
+    FILE *f = NULL;
+    char *csv_path = NULL;
+
+    if (argc > 1)
+        csv_path = argv[1];
+    else
+        csv_path = "half2float_result.csv";
+
+    f = fopen(csv_path,"wb");
+    if (!f) {
+        printf("unable to open csv file: %s'\n", csv_path);
+        return -1;
+    }
+
 #if defined(ARCH_X86)
     // print cpu name and check for f16c instruction
     CPUInfo info = {0};
     get_cpu_info(&info);
     printf("CPU: %s %s %s\n", CPU_ARCH, info.name, info.extensions);
+    fprintf(f, "%s,%s,%s\n", CPU_ARCH, info.name, info.extensions);
+
     if (!(info.flags & X86_CPU_FLAG_F16C)) {
         first = 1;
         printf("** CPU does not support f16c instruction**\n");
     }
 #else
     printf("CPU: %s %s\n", CPU_ARCH, get_cpu_model_name());
+    fprintf(f, "%s,%s\n", CPU_ARCH, get_cpu_model_name());
 #endif
+
+    printf("%s %s\n", get_platform_name(), COMPILER_NAME);
+    fprintf(f, "%s,%s\n", get_platform_name(), COMPILER_NAME);
+    printf("csv file: %s\n", csv_path);
 
     init_tables();
 
@@ -147,6 +171,7 @@ int main(int argc, char *argv[])
     randomize_buffer_u16(data, BUFFER_SIZE * TEST_RUNS, 1);
 
     printf("%-20s :      min      avg     max\n", "name");
+    fprintf(f, "\nperf_test,runs: %d buffer size: %d %s\n%s,%s,%s,%s\n", TEST_RUNS, BUFFER_SIZE,"random f16 <= HALF_MAX", "name", "min", "avg", "max");
     for (size_t i = first; i < TEST_COUNT; i++) {
         TIME_FUNC(f16_tests[i].name, f16_tests[i].f16_to_f32_buffer, BUFFER_SIZE, TEST_RUNS);
     }
@@ -157,10 +182,12 @@ int main(int argc, char *argv[])
     randomize_buffer_u16(data, BUFFER_SIZE * TEST_RUNS, 0);
 
     printf("%-20s :      min      avg     max\n", "name");
+    fprintf(f, "\nperf_test,runs: %d buffer size: %d %s\n%s,%s,%s,%s\n", TEST_RUNS, BUFFER_SIZE,"random f16 full +inf+nan", "name", "min", "avg", "max");
     for (size_t i = first; i < TEST_COUNT; i++) {
         TIME_FUNC(f16_tests[i].name, f16_tests[i].f16_to_f32_buffer, BUFFER_SIZE, TEST_RUNS);
     }
     fflush(stdout);
-
+    fprintf(f, "\n");
+    fclose(f);
     return 0;
 }

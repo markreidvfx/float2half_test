@@ -57,7 +57,7 @@ def extract_graph_data(path):
 
     return graphs
 
-def draw_perf_graph(graph_a, graph_b):
+def draw_perf_graph(csvname, graph_a, graph_b):
     labels = []
     values_a = []
     values_b = []
@@ -100,8 +100,8 @@ def draw_perf_graph(graph_a, graph_b):
     info = graph_a['os_info']
 
     out_filename = f"{info['cpu_name']}\n{info['os_name']} {info['compiler']}"
-    out_filename = out_filename.strip()
-    title = f"1920x1080 RGBA frame convert speed\n{out_filename}"
+    out_filename = f"{csvname}_{out_filename.strip()}"
+    title = f"{csvname} 1920x1080 RGBA frame convert speed\n{out_filename}"
 
     ax.set_title(title)
     plt.subplots_adjust(top=0.85, left=0.2)
@@ -189,9 +189,11 @@ def run_cli():
 
     args = parser.parse_args()
 
+    csvname = os.path.splitext(os.path.basename(args.csv_file))[0]
+
     graphs = extract_graph_data(args.csv_file)
 
-    draw_perf_graph(graphs[0], graphs[1])
+    draw_perf_graph(csvname, graphs[0], graphs[1])
 
     if args.accuracy_graph:
         for g in graphs[2:]:

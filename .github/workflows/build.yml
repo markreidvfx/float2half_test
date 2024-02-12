@@ -57,7 +57,7 @@ jobs:
       run: |
         cd ${{ matrix.name }}
         ./bin/float2half ./float2half_result.csv
-        ./bin/half2float
+        ./bin/half2float ./half2float_result.csv
 
     - name: Create Graphs
       shell: bash
@@ -66,6 +66,7 @@ jobs:
         mkdir graph
         cd graph
         python ../scripts/graph.py ../${{ matrix.name }}/float2half_result.csv
+        python ../scripts/graph.py ../${{ matrix.name }}/half2float_result.csv
         cd ..
         # move files into place for upload
         mkdir upload_dir

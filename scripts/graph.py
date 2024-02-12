@@ -100,8 +100,8 @@ def draw_perf_graph(csvname, graph_a, graph_b):
     info = graph_a['os_info']
 
     out_filename = f"{info['cpu_name']}\n{info['os_name']} {info['compiler']}"
-    out_filename = f"{csvname}_{out_filename.strip()}"
     title = f"{csvname} 1920x1080 RGBA frame convert speed\n{out_filename}"
+    out_filename = f"{csvname}_{out_filename.strip()}"
 
     ax.set_title(title)
     plt.subplots_adjust(top=0.85, left=0.2)

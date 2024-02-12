@@ -1,5 +1,6 @@
 import os
 import csv
+import re
 import argparse
 from pprint import pprint
 
@@ -101,16 +102,19 @@ def draw_perf_graph(csvname, graph_a, graph_b):
 
     out_filename = f"{info['cpu_name']}\n{info['os_name']} {info['compiler']}"
     title = f"{csvname} 1920x1080 RGBA frame convert speed\n{out_filename}"
-    out_filename = f"{csvname}_{out_filename.strip()}"
+    out_filename = f"{csvname} {out_filename.strip()}"
 
     ax.set_title(title)
     plt.subplots_adjust(top=0.85, left=0.2)
     ax.set_xlabel('Seconds (less is better)')
 
+    plt.tight_layout()
+
     # plt.show()
     out_filename = out_filename.replace("\n", " ")
     filename = "".join([c for c in out_filename if c.isalpha() or c.isdigit() or c==' ']).rstrip()
     filename = filename.replace(" ", "_")
+    filename = re.sub(r'(\S)\1+', '\\1', filename)
     outdir = "images"
     outimage = os.path.join(outdir, f"{filename}.png")
     if not os.path.exists(outdir):

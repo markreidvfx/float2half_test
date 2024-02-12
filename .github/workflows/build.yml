@@ -28,7 +28,7 @@ jobs:
         shell: '${{ matrix.shell }} {0}'
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Setup MSYS2
       if: runner.os == 'Windows' && (matrix.cc == 'gcc' || matrix.cc == 'clang')
@@ -41,7 +41,7 @@ jobs:
           mingw-w64-x86_64-cmake
 
     - name: Setup Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.10'
 
@@ -74,7 +74,7 @@ jobs:
         mv ./graph/images ./upload_dir/
 
     - name: Upload Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: artifacts
         path: |
